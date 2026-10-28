@@ -2,9 +2,9 @@
 //!
 //! Tested on the M5Stack PaperDIY.
 //!
-//! The waveform matrix is the one both M5GFX and FastEPD ship for this glass (`u8M5Matrix`
-//! in FastEPD). It is indexed by target gray level only, so it assumes every pixel starts
-//! from white. Run [`RefreshMode::Quality16`](crate::RefreshMode::Quality16), which clears
+//! The waveform matrix is FastEPD's `u8M5Matrix` for this glass. M5GFX does not use it: it has
+//! its own per-mode LUTs and an eraser pass. The matrix is indexed by target gray level only,
+//! so it assumes every pixel starts from white. Run [`RefreshMode::Quality16`](crate::RefreshMode::Quality16), which clears
 //! first, rather than driving the matrix from an unknown state.
 
 use crate::traits::{ColorMode, EpdPanel};
