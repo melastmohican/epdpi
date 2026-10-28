@@ -12,7 +12,12 @@ cargo test --no-default-features --features graphics   # async mode
 cargo clippy --all-features --workspace -- -D warnings
 cargo clippy --no-default-features --features graphics --workspace -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+cargo check --target thumbv6m-none-eabi                                  # RP2040 canary
+cargo +esp check --target xtensa-esp32s3-none-elf -Zbuild-std=core       # ESP32-S3, needs espup
 ```
+
+CI runs both target checks in blocking and async mode (add `--no-default-features --features
+graphics` for async). Add a target only when we own hardware for it.
 
 ## Rules
 

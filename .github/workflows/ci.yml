@@ -87,15 +87,13 @@ jobs:
         run: cargo check --no-default-features --features graphics --all-targets
 
   build-targets:
-    name: Build for Targets
+    name: Build for RP2040
+    # Cortex-M0+ has no atomics and a 32-bit usize, so it is the strictest no_std canary.
+    # Other bare-metal targets are added when we own hardware for them.
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - thumbv6m-none-eabi             # RP2040 (Cortex-M0+)
-          - thumbv7em-none-eabihf          # STM32/Cortex-M4F
-          - riscv32imac-unknown-none-elf    # ESP32-C3/C6
         args:
           - ""                                            # blocking (default)
           - "--no-default-features --features graphics"   # async
@@ -106,8 +104,32 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
-          targets: ${{ matrix.target }}
+          targets: thumbv6m-none-eabi
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
       - name: Build library
-        run: cargo check --target ${{ matrix.target }} ${{ matrix.args }}
+        run: cargo check --target thumbv6m-none-eabi ${{ matrix.args }}
+
+  build-esp32s3:
+    name: Build for ESP32-S3
+    # The board this crate runs on. Xtensa needs the esp toolchain and a core built from source.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        args:
+          - ""                                            # blocking (default)
+          - "--no-default-features --features graphics"   # async
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          buildtargets: esp32s3
+          ldproxy: false
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
+      - name: Build library
+        run: cargo check --target xtensa-esp32s3-none-elf -Zbuild-std=core ${{ matrix.args }}
