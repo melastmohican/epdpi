@@ -25,8 +25,10 @@
 //!   to get the `embedded-hal-async` API, where delays and bus calls are `async`.
 //! - `graphics` (default): `embedded-graphics-core` support for [`EpdFrameBuffer`].
 //! - `defmt`: `defmt::Format` on the public types.
-//! - `esp32s3`: [`fast_bus::Esp32s3Bus`], a bus that writes the GPIO registers directly and
-//!   reaches the row time the 16-gray waveform needs.
+//!
+//! Faster buses for specific chips live in separate crates, for example `epdpi-esp`, so this
+//! crate never depends on a vendor HAL. The 16-gray waveforms assume a row data phase near
+//! 16 us, which bit-banging through [`GenericGpioBus`] cannot reach.
 //!
 //! [`embedded-hal`]: https://docs.rs/embedded-hal
 
@@ -36,9 +38,6 @@
 pub mod bus;
 pub mod driver;
 pub mod error;
-#[cfg(feature = "esp32s3")]
-#[cfg_attr(docsrs, doc(cfg(feature = "esp32s3")))]
-pub mod fast_bus;
 pub mod framebuffer;
 pub mod panels;
 pub mod prelude;

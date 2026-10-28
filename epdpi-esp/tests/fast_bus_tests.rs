@@ -1,12 +1,11 @@
-#![cfg(feature = "esp32s3")]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! `FastGpioBus` mask table and line framing against a simulated GPIO port, run in both API
 //! modes.
 
 use core::cell::RefCell;
 
-use epdpi::fast_bus::{FastGpioBus, GpioPort, PinMapError};
 use epdpi::prelude::*;
+use epdpi_esp::fast_bus::{FastGpioBus, GpioPort, PinMapError};
 
 mod support;
 use support::*;

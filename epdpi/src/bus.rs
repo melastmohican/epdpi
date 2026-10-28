@@ -49,9 +49,9 @@ pub struct ControlPins<P> {
 /// power-on) left noise on the panel. Which of those differences mattered was not isolated.
 #[derive(Debug)]
 pub struct GenericGpioBus<P, D> {
-    pub(crate) data: [P; 8],
-    pub(crate) ctl: ControlPins<P>,
-    pub(crate) delay: D,
+    data: [P; 8],
+    ctl: ControlPins<P>,
+    delay: D,
 }
 
 impl<P, D> GenericGpioBus<P, D> {
@@ -63,6 +63,11 @@ impl<P, D> GenericGpioBus<P, D> {
             ctl: control,
             delay,
         }
+    }
+
+    /// The control pins, for faster buses that wrap this one and only replace the data path.
+    pub fn control_mut(&mut self) -> &mut ControlPins<P> {
+        &mut self.ctl
     }
 
     /// Gives the pins and delay back.

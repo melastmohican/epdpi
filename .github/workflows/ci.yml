@@ -33,11 +33,18 @@ jobs:
           - command: test
             args: --workspace
           - command: clippy
-            args: --all-features --workspace -- -D warnings
+            args: -p epdpi --all-features -- -D warnings
+          # `epdpi-esp` without a chip feature, so it builds on the host. The chip feature is
+          # checked in the ESP32-S3 job.
+          - command: clippy
+            args: -p epdpi-esp --all-targets -- -D warnings
           - command: doc
             args: --no-deps --all-features
             # Broken intra-doc links are warnings by default, so the doc job
             # would pass while shipping dead links to docs.rs.
+            rustdocflags: "-D warnings"
+          - command: doc
+            args: --no-deps -p epdpi-esp
             rustdocflags: "-D warnings"
           # Async API (`blocking` off). `--no-default-features` above already covers
           # async-without-graphics; these three cover the realistic async consumer shape.
@@ -46,7 +53,9 @@ jobs:
           - command: test
             args: --no-default-features --features graphics --workspace
           - command: clippy
-            args: --no-default-features --features graphics --workspace -- -D warnings
+            args: --no-default-features --features graphics -p epdpi -- -D warnings
+          - command: clippy
+            args: -p epdpi-esp --all-targets --no-default-features -- -D warnings
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -118,8 +127,10 @@ jobs:
       fail-fast: false
       matrix:
         args:
-          - ""                                            # blocking (default)
-          - "--no-default-features --features graphics"   # async
+          - "-p epdpi"                                              # core, blocking
+          - "-p epdpi --no-default-features --features graphics"    # core, async
+          - "-p epdpi-esp --features esp32s3"                       # buses, blocking
+          - "-p epdpi-esp --no-default-features --features esp32s3" # buses, async (fast_bus only)
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -131,5 +142,5 @@ jobs:
           ldproxy: false
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
-      - name: Build library
+      - name: Build
         run: cargo check --target xtensa-esp32s3-none-elf -Zbuild-std=core ${{ matrix.args }}

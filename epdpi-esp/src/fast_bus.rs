@@ -10,8 +10,7 @@
 //! The pins are only held, to keep them configured as outputs. The data pins and CL must
 //! all be below GPIO32, because the fast path uses the first GPIO output register.
 
-use crate::bus::{ControlPins, GenericGpioBus};
-use crate::traits::EpdParallelBus;
+use epdpi::{ControlPins, EpdParallelBus, GenericGpioBus};
 
 #[cfg(feature = "blocking")]
 use embedded_hal::delay::DelayNs;
@@ -162,9 +161,9 @@ where
     async fn write_scanline(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         // Same line framing as `GenericGpioBus`, with the per-byte pin writes replaced by
         // two stores for the data lines and one each to raise and drop CL.
-        self.inner.ctl.le.set_low()?;
-        self.inner.ctl.ckv.set_high()?;
-        self.inner.ctl.sph.set_low()?;
+        self.inner.control_mut().le.set_low()?;
+        self.inner.control_mut().ckv.set_high()?;
+        self.inner.control_mut().sph.set_low()?;
         for &byte in data {
             let ones = self.table[usize::from(byte)];
             self.port.clear(self.all_data & !ones);
@@ -172,7 +171,7 @@ where
             self.port.set(self.cl);
             self.port.clear(self.cl);
         }
-        self.inner.ctl.sph.set_high()?;
+        self.inner.control_mut().sph.set_high()?;
         Ok(())
     }
 
