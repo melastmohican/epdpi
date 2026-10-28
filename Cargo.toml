@@ -43,6 +43,8 @@ default = ["blocking", "graphics"]
 blocking = []
 graphics = ["dep:embedded-graphics-core"]
 defmt = ["dep:defmt"]
+# Register-level bus for the ESP32-S3. Needs no HAL crate, the pin numbers are passed in.
+esp32s3 = []
 
 [package.metadata.docs.rs]
 all-features = true

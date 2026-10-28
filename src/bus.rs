@@ -39,9 +39,9 @@ pub struct ControlPins<P> {
 /// power-on) left noise on the panel. Which of those differences mattered was not isolated.
 #[derive(Debug)]
 pub struct GenericGpioBus<P, D> {
-    data: [P; 8],
-    ctl: ControlPins<P>,
-    delay: D,
+    pub(crate) data: [P; 8],
+    pub(crate) ctl: ControlPins<P>,
+    pub(crate) delay: D,
 }
 
 impl<P, D> GenericGpioBus<P, D> {
