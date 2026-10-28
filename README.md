@@ -9,7 +9,7 @@ which covers SPI panels that have their own controller IC.
 
 | Panel | Resolution | Grays | Boards |
 | :--- | :--- | :--- | :--- |
-| `Ed047tc1` | 960 x 540 | 16 | M5Stack PaperDIY, M5PaperS3, LilyGO T5 4.7" |
+| `Ed047tc1` | 960 x 540 | 16 | M5Stack PaperDIY |
 
 ## Status
 

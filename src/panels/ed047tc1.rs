@@ -1,6 +1,6 @@
 //! E Ink ED047TC1, 4.7 inch 960 x 540, 16 gray levels.
 //!
-//! Used by the M5Stack PaperDIY, M5PaperS3 and LilyGO T5 4.7 inch boards.
+//! Tested on the M5Stack PaperDIY.
 //!
 //! The waveform matrix is the one both M5GFX and FastEPD ship for this glass (`u8M5Matrix`
 //! in FastEPD). It is indexed by target gray level only, so it assumes every pixel starts
