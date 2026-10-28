@@ -61,6 +61,21 @@ pub trait EpdPanel {
 
     /// Number of passes in [`WAVEFORM_LUT`](Self::WAVEFORM_LUT).
     const PASSES: usize = Self::WAVEFORM_LUT.len() / 16;
+
+    /// Erase passes of the M5GFX style update, `16 * ERASER_PASSES` bytes. Row `g` is indexed
+    /// by the gray level a pixel holds now, so any old picture is first moved towards mid
+    /// gray. Empty when the panel has no such table.
+    const ERASER_LUT: &'static [u8] = &[];
+
+    /// Number of passes in [`ERASER_LUT`](Self::ERASER_LUT).
+    const ERASER_PASSES: usize = Self::ERASER_LUT.len() / 16;
+
+    /// Drawing passes of the M5GFX style update, `16 * QUALITY_PASSES` bytes. Row `g` is
+    /// indexed by the target gray level. Empty when the panel has no such table.
+    const QUALITY_LUT: &'static [u8] = &[];
+
+    /// Number of passes in [`QUALITY_LUT`](Self::QUALITY_LUT).
+    const QUALITY_PASSES: usize = Self::QUALITY_LUT.len() / 16;
 }
 
 /// Hardware transport for a raw-parallel panel: an 8-bit data bus plus the gate and source

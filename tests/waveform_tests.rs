@@ -98,4 +98,38 @@ fn pass_counts() {
     assert_eq!(WaveformEngine::passes::<P>(RefreshMode::Quality16), 8);
     assert_eq!(WaveformEngine::passes::<P>(RefreshMode::FastMono), 4);
     assert_eq!(WaveformEngine::passes::<P>(RefreshMode::Clear), 0);
+    assert_eq!(WaveformEngine::passes::<P>(RefreshMode::M5Quality), 2 + 15);
+}
+
+#[test]
+fn m5_tables_are_16_levels_of_valid_codes() {
+    assert_eq!(P::ERASER_PASSES, 2);
+    assert_eq!(P::QUALITY_PASSES, 15);
+    assert_eq!(M5_ERASER_LUT.len(), 16 * 2);
+    assert_eq!(M5_QUALITY_LUT.len(), 16 * 15);
+    assert!(M5_ERASER_LUT.iter().all(|&c| c <= DriveCode::Lighten as u8));
+    assert!(
+        M5_QUALITY_LUT
+            .iter()
+            .all(|&c| c <= DriveCode::Lighten as u8)
+    );
+    // Spot checks against M5GFX `lut_eraser` and `lut_quality` (2 white, 1 black, 3 hold):
+    // level 0 is lightened twice by the eraser, level 15 darkened twice.
+    assert_eq!(&M5_ERASER_LUT[..2], &[2, 2]);
+    assert_eq!(&M5_ERASER_LUT[30..], &[1, 1]);
+    // Quality level 15 ends with two holds (3, 3 in M5GFX).
+    assert_eq!(&M5_QUALITY_LUT[16 * 15 - 2..], &[0, 0]);
+    // Quality level 0 starts black, white, white.
+    assert_eq!(&M5_QUALITY_LUT[..3], &[1, 2, 2]);
+}
+
+#[test]
+fn lut_scanline_indexes_the_table_by_the_row_levels() {
+    // Eraser pass 0 of a row holding level 0 in the first pixel, 15 in the second.
+    let mut out = vec![0xAAu8; P::SCANLINE_BYTES];
+    let row = vec![0x0Fu8; P::FB_STRIDE_BYTES];
+    WaveformEngine::lut_scanline::<P>(&row, P::ERASER_LUT, P::ERASER_PASSES, 0, &mut out);
+    // Level 0 lightens (2), level 15 darkens (1), first pixel in bits 7:6.
+    assert_eq!(out[0], 0b10_01_10_01);
+    assert!(out[P::SCANLINE_PIXEL_BYTES..].iter().all(|&b| b == 0));
 }

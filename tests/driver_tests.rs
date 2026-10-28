@@ -167,3 +167,49 @@ epd_test!(
     fast_mono_only_drives_changed_pixels,
     fast_mono_only_drives_changed_pixels_body
 );
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn m5_quality_erases_from_the_record_then_draws_the_target_body() {
+    let mut prev = vec![0x00u8; P::FB_BYTES]; // glass shows black
+    let mut line = vec![0u8; P::SCANLINE_BYTES];
+    let mut fbmem = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+    fb.fill(0xF); // target all white
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    d.refresh(&fb, RefreshMode::M5Quality).await.unwrap();
+    let bus = d.release();
+
+    // No clear cycle: 2 erase passes, 15 drawing passes, 1 discharge.
+    assert_eq!(frames(&bus), 2 + 15 + 1);
+    assert_eq!(bus.lines.len(), 18 * ROWS);
+    // Erase passes follow the recorded black: both lighten.
+    for pass in 0..2 {
+        let first = &bus.lines[pass * ROWS];
+        assert!(first[..240].iter().all(|&b| b == 0xAA), "erase {pass}");
+    }
+    // Drawing passes follow the white target, row 15 of the quality table.
+    for pass in 0..15 {
+        let code = M5_QUALITY_LUT[15 * 15 + pass];
+        let first = &bus.lines[(2 + pass) * ROWS];
+        assert!(
+            first[..240].iter().all(|&b| b == code * 0x55),
+            "draw {pass}"
+        );
+    }
+    assert!(bus.lines[17 * ROWS].iter().all(|&b| b == 0));
+    drop(bus);
+    assert!(
+        prev.iter().all(|&b| b == 0xFF),
+        "prev records the shown frame"
+    );
+}
+
+epd_test!(
+    m5_quality_erases_from_the_record_then_draws_the_target,
+    m5_quality_erases_from_the_record_then_draws_the_target_body
+);

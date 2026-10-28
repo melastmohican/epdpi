@@ -175,6 +175,22 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
                         next,
                         self.scanline,
                     ),
+                    RefreshMode::M5Quality if pass < PANEL::ERASER_PASSES => {
+                        WaveformEngine::lut_scanline::<PANEL>(
+                            &self.prev_buffer[range],
+                            PANEL::ERASER_LUT,
+                            PANEL::ERASER_PASSES,
+                            pass,
+                            self.scanline,
+                        );
+                    }
+                    RefreshMode::M5Quality => WaveformEngine::lut_scanline::<PANEL>(
+                        next,
+                        PANEL::QUALITY_LUT,
+                        PANEL::QUALITY_PASSES,
+                        pass - PANEL::ERASER_PASSES,
+                        self.scanline,
+                    ),
                     _ => WaveformEngine::gray_scanline::<PANEL>(next, pass, self.scanline),
                 }
                 self.bus

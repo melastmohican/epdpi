@@ -31,6 +31,50 @@ pub const ED047TC1_LUT: [u8; 128] = [
     2, 2, 2, 2, 2, 2, 2, 2,
 ];
 
+/// M5GFX `lut_eraser`, 16 gray levels by 2 passes. Row `g` is indexed by the gray level the
+/// pixel holds now. Codes as for [`ED047TC1_LUT`] (M5GFX 3, no operation, is 0 here).
+#[rustfmt::skip]
+pub const M5_ERASER_LUT: [u8; 32] = [
+    2, 2,
+    2, 2,
+    2, 0,
+    2, 0,
+    2, 0,
+    2, 1,
+    2, 1,
+    2, 1,
+    2, 1,
+    2, 1,
+    2, 1,
+    0, 1,
+    0, 1,
+    0, 1,
+    1, 1,
+    1, 1,
+];
+
+/// M5GFX `lut_quality`, 16 gray levels by 15 passes. Row `g` is indexed by the target gray
+/// level. M5GFX also pads the table with 16 no-operation passes, which are left out here.
+#[rustfmt::skip]
+pub const M5_QUALITY_LUT: [u8; 240] = [
+    1, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0,
+    1, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 0,
+    1, 2, 2, 1, 1, 1, 2, 1, 0, 2, 2, 1, 1, 1, 0,
+    1, 2, 2, 1, 1, 1, 2, 1, 2, 2, 2, 1, 1, 1, 0,
+    1, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 0, 1, 1, 0,
+    1, 2, 2, 1, 1, 1, 1, 2, 1, 2, 2, 2, 1, 1, 0,
+    1, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 0,
+    2, 2, 2, 1, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 0,
+    1, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 2, 1, 1, 0,
+    2, 2, 2, 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1, 0,
+    2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 0, 1, 0,
+    1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 0, 1, 0,
+    1, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2,
+    1, 2, 2, 1, 1, 1, 1, 2, 1, 2, 2, 2, 2, 1, 2,
+    1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 2,
+    1, 2, 2, 1, 1, 1, 0, 2, 2, 2, 2, 2, 2, 0, 0,
+];
+
 /// E Ink ED047TC1 panel.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Ed047tc1;
@@ -42,4 +86,6 @@ impl EpdPanel for Ed047tc1 {
     const VCOM_MV: Option<i16> = Some(-2000);
     const LINE_PADDING: usize = 8;
     const WAVEFORM_LUT: &'static [u8] = &ED047TC1_LUT;
+    const ERASER_LUT: &'static [u8] = &M5_ERASER_LUT;
+    const QUALITY_LUT: &'static [u8] = &M5_QUALITY_LUT;
 }

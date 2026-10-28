@@ -13,6 +13,11 @@ pub enum RefreshMode {
     /// Full 16-level update: clears the panel, then runs every pass of the panel's waveform
     /// matrix. Flashes and takes several seconds.
     Quality16,
+    /// 16-level update that follows M5GFX `epd_quality`: a short erase that moves each pixel
+    /// from the gray it holds now towards mid gray, then the quality waveform for its target
+    /// gray. No full clear, so the previous picture must be recorded (see
+    /// [`EpdDisplay::clear`](crate::EpdDisplay::clear)).
+    M5Quality,
     /// Flashes the panel black then white and leaves it white.
     Clear,
 }
@@ -44,6 +49,7 @@ impl WaveformEngine {
         match mode {
             RefreshMode::FastMono => MONO_PASSES,
             RefreshMode::Quality16 => PANEL::PASSES,
+            RefreshMode::M5Quality => PANEL::ERASER_PASSES + PANEL::QUALITY_PASSES,
             RefreshMode::Clear => 0,
         }
     }
@@ -59,8 +65,19 @@ impl WaveformEngine {
     /// Builds the scanline for `pass` of the panel's waveform matrix from one 4 bits per
     /// pixel framebuffer row (left pixel in the high nibble).
     pub fn gray_scanline<PANEL: EpdPanel>(fb_row: &[u8], pass: usize, out: &mut [u8]) {
-        let passes = PANEL::PASSES;
-        let lut = PANEL::WAVEFORM_LUT;
+        Self::lut_scanline::<PANEL>(fb_row, PANEL::WAVEFORM_LUT, PANEL::PASSES, pass, out);
+    }
+
+    /// Builds the scanline for `pass` of any `16 * passes` byte table, level-major, from one
+    /// 4 bits per pixel row. The row picks each pixel's level, so the same call drives a
+    /// table indexed by target gray (a framebuffer row) or by current gray (a record row).
+    pub fn lut_scanline<PANEL: EpdPanel>(
+        level_row: &[u8],
+        lut: &[u8],
+        passes: usize,
+        pass: usize,
+        out: &mut [u8],
+    ) {
         let code = |gray: u8| {
             lut.get(usize::from(gray) * passes + pass)
                 .copied()
@@ -69,7 +86,7 @@ impl WaveformEngine {
         for (dst, src) in out
             .iter_mut()
             .take(PANEL::SCANLINE_PIXEL_BYTES)
-            .zip(fb_row.chunks_exact(2))
+            .zip(level_row.chunks_exact(2))
         {
             *dst = pack([
                 code(src[0] >> 4),
