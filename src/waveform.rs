@@ -17,6 +17,9 @@ pub enum RefreshMode {
     /// from the gray it holds now towards mid gray, then the quality waveform for its target
     /// gray. No full clear, so the previous picture must be recorded (see
     /// [`EpdDisplay::clear`](crate::EpdDisplay::clear)).
+    ///
+    /// The waveform assumes a row data phase near 16 us. On a PaperDIY it gave an even ramp
+    /// over an `LCD_CAM` DMA bus (22 us) and a squashed one over GPIO bit-banging (62 us).
     M5Quality,
     /// Flashes the panel black then white and leaves it white.
     Clear,

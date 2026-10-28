@@ -14,8 +14,11 @@ which covers SPI panels that have their own controller IC.
 ## Status
 
 The sequencing, waveform packing and pin behavior are covered by host tests in both
-API modes. On a M5Stack PaperDIY, `RefreshMode::Clear` is confirmed on hardware. `Quality16`
-and `FastMono` are not yet. See `rust-m5paperdiy-examples` for the bench test suite.
+API modes. On a M5Stack PaperDIY, `Clear` and `FastMono` (no full-screen flash) run correctly on
+hardware. `Quality16` runs, but the top gray levels look alike. `M5Quality`, which follows
+M5GFX's waveform, gives an even ramp over an `LCD_CAM` DMA bus, with midtones about 20 levels
+darker than M5GFX, and a squashed ramp over GPIO bit-banging. The DMA bus lives in
+`rust-m5paperdiy-examples` for now, which also holds the bench test suite.
 
 ## Usage
 
