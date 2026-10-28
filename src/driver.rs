@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use crate::error::ValidationError;
 use crate::framebuffer::EpdFrameBuffer;
 use crate::traits::{DriveCode, EpdPanel, EpdParallelBus};
-use crate::waveform::{RefreshMode, WaveformEngine, CLEAR_PASSES};
+use crate::waveform::{CLEAR_PASSES, RefreshMode, WaveformEngine};
 
 /// Builds an [`EpdDisplay`].
 #[derive(Debug)]

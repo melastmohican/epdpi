@@ -2,4 +2,4 @@
 
 mod ed047tc1;
 
-pub use ed047tc1::{Ed047tc1, ED047TC1_LUT};
+pub use ed047tc1::{ED047TC1_LUT, Ed047tc1};

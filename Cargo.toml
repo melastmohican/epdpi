@@ -1,7 +1,7 @@
 [package]
 name = "epdpi"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Mariusz Jurgielewicz <mordor@mail.com>"]
 description = "no_std embedded-hal 1.0 compatible Rust driver framework, blocking or async, for raw-parallel Electronic Paper Displays (EPD): ED047TC1 on M5Stack PaperDIY, M5PaperS3 and LilyGO T5 4.7"
 license = "MIT OR Apache-2.0"
@@ -11,7 +11,7 @@ readme = "README.md"
 homepage = "https://github.com/melastmohican/epdpi"
 keywords = ["epd", "epaper", "async", "embedded-hal", "embedded-graphics"]
 categories = ["embedded", "no-std", "hardware-support", "asynchronous"]
-rust-version = "1.75"
+rust-version = "1.85"
 exclude = [
     ".agents/",
     ".github/",

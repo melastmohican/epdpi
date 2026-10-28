@@ -76,10 +76,10 @@ mod graphics {
     use core::convert::Infallible;
 
     use embedded_graphics_core::{
+        Pixel,
         draw_target::DrawTarget,
         geometry::{OriginDimensions, Size},
         pixelcolor::{Gray4, GrayColor},
-        Pixel,
     };
 
     use super::EpdFrameBuffer;

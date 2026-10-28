@@ -62,11 +62,7 @@ impl<P, D> GenericGpioBus<P, D> {
 }
 
 fn level<P: OutputPin>(pin: &mut P, high: bool) -> Result<(), P::Error> {
-    if high {
-        pin.set_high()
-    } else {
-        pin.set_low()
-    }
+    if high { pin.set_high() } else { pin.set_low() }
 }
 
 #[maybe_async_cfg::maybe(

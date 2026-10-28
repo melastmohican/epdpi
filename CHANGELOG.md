@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+- Edition 2024 and MSRV 1.85 (was edition 2021 and 1.75, copied from `epdsi` without
+  revisiting). No source changes were needed beyond `rustfmt`'s 2024 import ordering.
+
 ### Added
 - Initial driver: `EpdPanel`, `EpdParallelBus`, `GenericGpioBus`, `WaveformEngine`,
   `EpdFrameBuffer`, `EpdDisplay` and `EpdDisplayBuilder`, blocking and async.

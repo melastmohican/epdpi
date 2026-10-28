@@ -4,6 +4,6 @@ pub use crate::bus::{ControlPins, GenericGpioBus};
 pub use crate::driver::{EpdDisplay, EpdDisplayBuilder};
 pub use crate::error::ValidationError;
 pub use crate::framebuffer::EpdFrameBuffer;
-pub use crate::panels::{Ed047tc1, ED047TC1_LUT};
+pub use crate::panels::{ED047TC1_LUT, Ed047tc1};
 pub use crate::traits::{ColorMode, DriveCode, EpdPanel, EpdParallelBus};
 pub use crate::waveform::{RefreshMode, WaveformEngine};

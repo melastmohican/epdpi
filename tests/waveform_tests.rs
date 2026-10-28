@@ -11,12 +11,16 @@ fn lut_is_16_levels_by_8_passes_of_valid_codes() {
     assert_eq!(P::PASSES, 8);
     assert!(ED047TC1_LUT.iter().all(|&c| c <= DriveCode::Lighten as u8));
     // Black row only darkens, white row only lightens.
-    assert!(ED047TC1_LUT[..8]
-        .iter()
-        .all(|&c| c == DriveCode::Darken as u8));
-    assert!(ED047TC1_LUT[120..]
-        .iter()
-        .all(|&c| c == DriveCode::Lighten as u8));
+    assert!(
+        ED047TC1_LUT[..8]
+            .iter()
+            .all(|&c| c == DriveCode::Darken as u8)
+    );
+    assert!(
+        ED047TC1_LUT[120..]
+            .iter()
+            .all(|&c| c == DriveCode::Lighten as u8)
+    );
 }
 
 #[test]
