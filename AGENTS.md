@@ -20,7 +20,10 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 - Blocking and async share one body via `maybe_async_cfg`. Tests use the `epd_test!` macro in
   `tests/support/mod.rs`. Run both modes before pushing.
 - Hardware numbers (edge timing, delays, waveform matrix) come from FastEPD / M5GFX. Re-derive
-  from there rather than from `paperdiy_rust_driver_design.md`, which has known errors (LUT
-  layout, 2bpp framebuffer, array length from an associated const).
+  from there rather than from the original plan, which has known errors (LUT layout, 2bpp
+  framebuffer, array length from an associated const). The plan is archived in
+  `.agents/notes/original-design-plan.md` with its errors listed.
+- Open work lives in `.agents/notes/backlog.md`. That folder is git-ignored by the global
+  gitignore, like in `epdsi`, so it is a local working aid and not part of a clone.
 - Docs read like a person wrote them: no em dashes, no "it's not X, it's Y".
 - Never `git add .` in the parent `~/Src` repo. This directory is its own repo.
