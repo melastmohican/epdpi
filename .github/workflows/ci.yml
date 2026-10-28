@@ -1,0 +1,119 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/README.md"
+  pull_request:
+  workflow_dispatch:
+  # Lets release.yml run this exact matrix against the tagged commit and gate
+  # publishing on it passing, instead of relying on a separately-triggered,
+  # separately-timed CI run on the branch push that happened to land the tag.
+  workflow_call:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-checks:
+    name: Rust Checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        action:
+          - command: check
+            args: --all-targets
+          - command: check
+            args: --no-default-features
+          - command: check
+            args: --features defmt
+          - command: test
+            args: --workspace
+          - command: clippy
+            args: --all-features --workspace -- -D warnings
+          - command: doc
+            args: --no-deps --all-features
+            # Broken intra-doc links are warnings by default, so the doc job
+            # would pass while shipping dead links to docs.rs.
+            rustdocflags: "-D warnings"
+          # Async API (`blocking` off). `--no-default-features` above already covers
+          # async-without-graphics; these three cover the realistic async consumer shape.
+          - command: check
+            args: --no-default-features --features graphics --all-targets
+          - command: test
+            args: --no-default-features --features graphics --workspace
+          - command: clippy
+            args: --no-default-features --features graphics --workspace -- -D warnings
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
+      - name: Run command
+        run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+        env:
+          RUSTDOCFLAGS: ${{ matrix.action.rustdocflags }}
+
+  msrv:
+    name: Minimum Supported Rust Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          # Must match `rust-version` in Cargo.toml.
+          toolchain: "1.75"
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
+      - name: Drop lockfile
+        # The committed Cargo.lock is format v4, which Cargo 1.75 cannot parse.
+        # Resolving fresh here also mirrors what a consumer on the MSRV would get.
+        run: rm -f Cargo.lock
+      - name: Pin defmt to a release that builds on the MSRV
+        # defmt 1.2.0 (15 Oct 2026) declares rust-version 1.81, which fails the fresh resolve
+        # above. Remove once the MSRV is 1.81 or newer. A consumer building the `defmt` feature
+        # on rustc older than 1.81 needs the same pin.
+        run: cargo update defmt --precise 1.1.1
+      - name: Check library (blocking)
+        run: cargo check --all-features
+      - name: Check library (async)
+        # `--all-features` above enables `blocking`, which wins over the async `cfg` branches —
+        # native async-fn-in-trait (this crate's whole MSRV rationale) is only actually exercised
+        # with `blocking` off.
+        run: cargo check --no-default-features --features graphics --all-targets
+
+  build-targets:
+    name: Build for Targets
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - thumbv6m-none-eabi             # RP2040 (Cortex-M0+)
+          - thumbv7em-none-eabihf          # STM32/Cortex-M4F
+          - riscv32imac-unknown-none-elf    # ESP32-C3/C6
+        args:
+          - ""                                            # blocking (default)
+          - "--no-default-features --features graphics"   # async
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
+      - name: Build library
+        run: cargo check --target ${{ matrix.target }} ${{ matrix.args }}
