@@ -15,8 +15,8 @@ Only the ESP32-S3 exists and is tested, on an M5Stack PaperDIY. The chip is a fe
 `esp-hal`.
 
 ```toml
-epdpi = "0.1"
-epdpi-esp = { version = "0.1", features = ["esp32s3"] }
+epdpi = { git = "https://github.com/melastmohican/epdpi" }
+epdpi-esp = { git = "https://github.com/melastmohican/epdpi", features = ["esp32s3"] }
 ```
 
 `epdpi-esp` depends on `esp-hal` 1.1 (with its `unstable` feature). Cargo allows one copy of
