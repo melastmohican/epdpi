@@ -34,6 +34,16 @@ pub struct ControlPins<P> {
 /// and `embassy-stm32` expose their pins. Use `degrade`, `AnyPin` or a similar erasing
 /// step first on HALs with a distinct type per pin.
 ///
+/// # Row time
+///
+/// Every data pin is a separate call, so a row takes about 250 us on an ESP32-S3. The
+/// ED047TC1 waveform matrix assumes about 16 us (M5GFX). At 250 us each pass drives too
+/// long and the mid grays saturate, so the panel shows two tones instead of 16 grays. This
+/// bus is fine for `Clear` and `FastMono`. For `Quality16` use a faster bus, such as
+/// `fast_bus::Esp32s3Bus` behind the `esp32s3` feature.
+///
+/// # Sequence
+///
 /// The edge sequences and microsecond delays follow M5GFX's `Bus_EPD`, which is the sequence
 /// confirmed on a PaperDIY. An earlier FastEPD-style version (short LE pulse, no wait after
 /// power-on) left noise on the panel. Which of those differences mattered was not isolated.
