@@ -18,9 +18,10 @@ async fn write_scanline_drives_data_pins_and_clocks_each_byte_body() {
     bus.write_scanline(&[0b1010_0101, 0xFF]).await.unwrap();
     let ev = log.borrow().clone();
 
-    // Starts with SPH low and CKV high, ends with SPH high.
-    assert_eq!(ev[0], (SPH, false));
+    // LE drops before the data, then CKV rises and SPH falls. Ends with SPH high.
+    assert_eq!(ev[0], (LE, false));
     assert_eq!(ev[1], (CKV, true));
+    assert_eq!(ev[2], (SPH, false));
     assert_eq!(*ev.last().unwrap(), (SPH, true));
 
     let clocks: Vec<_> = ev.iter().filter(|(p, _)| *p == CL).collect();
@@ -48,46 +49,46 @@ epd_test!(
     sync(feature = "blocking", keep_self),
     async(not(feature = "blocking"), keep_self)
 )]
-async fn next_row_drops_ckv_then_pulses_latch_body() {
+async fn next_row_drops_ckv_then_raises_latch_and_leaves_it_high_body() {
     let log = RefCell::new(Vec::new());
     let mut bus = gpio_bus(&log);
     bus.next_row().await.unwrap();
-    assert_eq!(*log.borrow(), vec![(CKV, false), (LE, true), (LE, false)]);
+    assert_eq!(*log.borrow(), vec![(CKV, false), (LE, true)]);
 }
 
 epd_test!(
-    next_row_drops_ckv_then_pulses_latch,
-    next_row_drops_ckv_then_pulses_latch_body
+    next_row_drops_ckv_then_raises_latch_and_leaves_it_high,
+    next_row_drops_ckv_then_raises_latch_and_leaves_it_high_body
 );
 
 #[maybe_async_cfg::maybe(
     sync(feature = "blocking", keep_self),
     async(not(feature = "blocking"), keep_self)
 )]
-async fn start_frame_pulses_spv_low_then_high_with_reference_timing_body() {
+async fn start_frame_pulses_spv_low_then_high_with_m5gfx_timing_body() {
     let log = RefCell::new(Vec::new());
     let mut bus = gpio_bus(&log);
     bus.start_frame().await.unwrap();
     let ev = log.borrow().clone();
     let spv: Vec<bool> = ev.iter().filter(|(p, _)| *p == SPV).map(|e| e.1).collect();
     assert_eq!(spv, vec![false, true]);
-    // 7 + 10 + 8 + 10 + 18 + 18 microseconds between edges.
+    // 1 + 3 + 1, then three 3 + 3 microsecond CKV pulses, as M5GFX does.
     let (_, _, delay) = bus.release();
-    assert_eq!(delay.total_us, 71);
+    assert_eq!(delay.total_us, 23);
     // CKV is left high, ready for the first scanline.
     assert_eq!(*ev.last().unwrap(), (CKV, true));
 }
 
 epd_test!(
-    start_frame_pulses_spv_low_then_high_with_reference_timing,
-    start_frame_pulses_spv_low_then_high_with_reference_timing_body
+    start_frame_pulses_spv_low_then_high_with_m5gfx_timing,
+    start_frame_pulses_spv_low_then_high_with_m5gfx_timing_body
 );
 
 #[maybe_async_cfg::maybe(
     sync(feature = "blocking", keep_self),
     async(not(feature = "blocking"), keep_self)
 )]
-async fn power_sequence_orders_oe_pwr_spv_body() {
+async fn power_sequence_orders_pins_and_settles_body() {
     let log = RefCell::new(Vec::new());
     let mut bus = gpio_bus(&log);
     bus.set_power(true).await.unwrap();
@@ -98,9 +99,12 @@ async fn power_sequence_orders_oe_pwr_spv_body() {
     log.borrow_mut().clear();
     bus.set_power(false).await.unwrap();
     assert_eq!(*log.borrow(), vec![(PWR, false), (OE, false), (SPV, false)]);
+    // On: 100 + 100 us + 1 ms settle. Off: 1 ms + 10 us + 100 us.
+    let (_, _, delay) = bus.release();
+    assert_eq!(delay.total_us, 1200 + 1110);
 }
 
 epd_test!(
-    power_sequence_orders_oe_pwr_spv,
-    power_sequence_orders_oe_pwr_spv_body
+    power_sequence_orders_pins_and_settles,
+    power_sequence_orders_pins_and_settles_body
 );

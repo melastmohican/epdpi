@@ -14,8 +14,8 @@ which covers SPI panels that have their own controller IC.
 ## Status
 
 The sequencing, waveform packing and pin behavior are covered by host tests in both
-API modes. The driver has not yet been run on hardware. See `rust-m5paperdiy-examples`
-for the bench test suite.
+API modes. On a M5Stack PaperDIY, `RefreshMode::Clear` is confirmed on hardware. `Quality16`
+and `FastMono` are not yet. See `rust-m5paperdiy-examples` for the bench test suite.
 
 ## Usage
 

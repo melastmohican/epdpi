@@ -34,8 +34,9 @@ pub struct ControlPins<P> {
 /// and `embassy-stm32` expose their pins. Use `degrade`, `AnyPin` or a similar erasing
 /// step first on HALs with a distinct type per pin.
 ///
-/// The edge sequences and microsecond delays follow the FastEPD reference driver for the
-/// M5Stack boards.
+/// The edge sequences and microsecond delays follow M5GFX's `Bus_EPD`, which is the sequence
+/// confirmed on a PaperDIY. An earlier FastEPD-style version (short LE pulse, no wait after
+/// power-on) left noise on the panel. Which of those differences mattered was not isolated.
 #[derive(Debug)]
 pub struct GenericGpioBus<P, D> {
     data: [P; 8],
@@ -87,9 +88,12 @@ where
             self.delay.delay_us(100).await;
             self.ctl.spv.set_high()?;
             self.ctl.sph.set_high()?;
-        } else {
-            self.ctl.pwr.set_low()?;
+            // The boost converter needs a moment before the first scan.
             self.delay.delay_ms(1).await;
+        } else {
+            self.delay.delay_ms(1).await;
+            self.ctl.pwr.set_low()?;
+            self.delay.delay_us(10).await;
             self.ctl.oe.set_low()?;
             self.delay.delay_us(100).await;
             self.ctl.spv.set_low()?;
@@ -99,29 +103,27 @@ where
 
     async fn start_frame(&mut self) -> Result<(), Self::Error> {
         let c = &mut self.ctl;
-        c.ckv.set_high()?;
-        self.delay.delay_us(7).await;
         c.spv.set_low()?;
-        self.delay.delay_us(10).await;
+        self.delay.delay_us(1).await;
         c.ckv.set_low()?;
+        self.delay.delay_us(3).await;
         c.ckv.set_high()?;
-        self.delay.delay_us(8).await;
+        self.delay.delay_us(1).await;
         c.spv.set_high()?;
-        self.delay.delay_us(10).await;
-        c.ckv.set_low()?;
-        c.ckv.set_high()?;
-        self.delay.delay_us(18).await;
-        c.ckv.set_low()?;
-        c.ckv.set_high()?;
-        self.delay.delay_us(18).await;
-        c.ckv.set_low()?;
-        c.ckv.set_high()?;
+        for _ in 0..3 {
+            self.delay.delay_us(3).await;
+            c.ckv.set_low()?;
+            self.delay.delay_us(3).await;
+            c.ckv.set_high()?;
+        }
         Ok(())
     }
 
     async fn write_scanline(&mut self, data: &[u8]) -> Result<(), Self::Error> {
-        self.ctl.sph.set_low()?;
+        // LE stays high between rows and drops before the next row's data, as M5GFX does.
+        self.ctl.le.set_low()?;
         self.ctl.ckv.set_high()?;
+        self.ctl.sph.set_low()?;
         for &byte in data {
             for (bit, pin) in self.data.iter_mut().enumerate() {
                 level(pin, byte & (1 << bit) != 0)?;
@@ -136,12 +138,12 @@ where
     async fn next_row(&mut self) -> Result<(), Self::Error> {
         self.ctl.ckv.set_low()?;
         self.ctl.le.set_high()?;
-        self.ctl.le.set_low()?;
         Ok(())
     }
 
     async fn end_frame(&mut self) -> Result<(), Self::Error> {
-        self.delay.delay_us(230).await;
+        self.ctl.le.set_low()?;
+        self.ctl.ckv.set_high()?;
         Ok(())
     }
 }
