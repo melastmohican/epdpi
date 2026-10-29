@@ -213,3 +213,86 @@ epd_test!(
     m5_quality_erases_from_the_record_then_draws_the_target,
     m5_quality_erases_from_the_record_then_draws_the_target_body
 );
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn m5_fast_records_the_black_and_white_picture_body() {
+    let mut prev = vec![0x00u8; P::FB_BYTES]; // glass shows black
+    let mut line = vec![0u8; P::SCANLINE_BYTES];
+    let mut fbmem = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+    fb.fill(0x9); // gray 9 everywhere, counts as white
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    d.refresh(&fb, RefreshMode::M5Fast).await.unwrap();
+    let bus = d.release();
+    // 8 passes and the discharge pass, no clear cycle.
+    assert_eq!(frames(&bus), 8 + 1);
+    assert_eq!(bus.lines.len(), 9 * ROWS);
+    // Black to white: first pass is the white row of `lut_fast`, a darken kick.
+    assert!(bus.lines[0][..240].iter().all(|&b| b == 0x55));
+    drop(bus);
+    assert!(
+        prev.iter().all(|&b| b == 0xFF),
+        "record holds the reduced picture, not gray 9"
+    );
+}
+
+epd_test!(
+    m5_fast_records_the_black_and_white_picture,
+    m5_fast_records_the_black_and_white_picture_body
+);
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn m5_modes_run_every_pass_of_their_own_table_body() {
+    // Black on screen, white requested, so every pair is active in every mode.
+    for (mode, erase, lut, passes) in [
+        (RefreshMode::M5Fast, false, &M5_FAST_LUT[..], P::FAST_PASSES),
+        (
+            RefreshMode::M5Fastest,
+            false,
+            &M5_FASTEST_LUT[..],
+            P::FASTEST_PASSES,
+        ),
+        (RefreshMode::M5Text, true, &M5_TEXT_LUT[..], P::TEXT_PASSES),
+    ] {
+        let mut prev = vec![0x00u8; P::FB_BYTES];
+        let mut line = vec![0u8; P::SCANLINE_BYTES];
+        let mut fbmem = vec![0xFFu8; P::FB_BYTES];
+        let mut fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+        fb.fill(0xF);
+        let mut d = EpdDisplayBuilder::<P>::new()
+            .build(RecordingBus::default(), &mut prev, &mut line)
+            .unwrap();
+        d.refresh(&fb, mode).await.unwrap();
+        let bus = d.release();
+        let erase_passes = if erase { P::ERASER_PASSES } else { 0 };
+        let total = erase_passes + passes;
+        assert_eq!(frames(&bus), total + 1, "{mode:?}");
+        for pass in 0..total {
+            let code = if pass < erase_passes {
+                // Erase follows the recorded black, level 0 of the eraser table.
+                M5_ERASER_LUT[pass]
+            } else {
+                // Drawing follows the white target, level 15.
+                lut[15 * passes + pass - erase_passes]
+            };
+            let first = &bus.lines[pass * ROWS];
+            assert!(
+                first[..240].iter().all(|&b| b == code * 0x55),
+                "{mode:?} pass {pass}"
+            );
+        }
+    }
+}
+
+epd_test!(
+    m5_modes_run_every_pass_of_their_own_table,
+    m5_modes_run_every_pass_of_their_own_table_body
+);

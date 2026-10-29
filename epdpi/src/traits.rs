@@ -76,6 +76,27 @@ pub trait EpdPanel {
 
     /// Number of passes in [`QUALITY_LUT`](Self::QUALITY_LUT).
     const QUALITY_PASSES: usize = Self::QUALITY_LUT.len() / 16;
+
+    /// Drawing passes of the M5GFX text update, `16 * TEXT_PASSES` bytes, indexed by target
+    /// gray. Run after the erase passes. Empty when the panel has no such table.
+    const TEXT_LUT: &'static [u8] = &[];
+
+    /// Number of passes in [`TEXT_LUT`](Self::TEXT_LUT).
+    const TEXT_PASSES: usize = Self::TEXT_LUT.len() / 16;
+
+    /// Passes of the M5GFX fast update, `16 * FAST_PASSES` bytes, indexed by black or white
+    /// target. No erase. Empty when the panel has no such table.
+    const FAST_LUT: &'static [u8] = &[];
+
+    /// Number of passes in [`FAST_LUT`](Self::FAST_LUT).
+    const FAST_PASSES: usize = Self::FAST_LUT.len() / 16;
+
+    /// Passes of the M5GFX fastest update, `16 * FASTEST_PASSES` bytes. No erase. Empty when
+    /// the panel has no such table.
+    const FASTEST_LUT: &'static [u8] = &[];
+
+    /// Number of passes in [`FASTEST_LUT`](Self::FASTEST_LUT).
+    const FASTEST_PASSES: usize = Self::FASTEST_LUT.len() / 16;
 }
 
 /// Hardware transport for a raw-parallel panel: an 8-bit data bus plus the gate and source

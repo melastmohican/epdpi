@@ -146,6 +146,11 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
         let record = &mut self.prev_buffer[..PANEL::FB_BYTES];
         match mode {
             RefreshMode::Clear => record.fill(0xff),
+            _ if mode.is_binary() => {
+                for (dst, src) in record.iter_mut().zip(fb.as_bytes()) {
+                    *dst = binary_pair(*src);
+                }
+            }
             _ => record.copy_from_slice(fb.as_bytes()),
         }
         Ok(())
@@ -191,6 +196,15 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
                         pass - PANEL::ERASER_PASSES,
                         self.scanline,
                     ),
+                    RefreshMode::M5Text | RefreshMode::M5Fast | RefreshMode::M5Fastest => {
+                        WaveformEngine::m5_scanline::<PANEL>(
+                            mode,
+                            &self.prev_buffer[range],
+                            next,
+                            pass,
+                            self.scanline,
+                        );
+                    }
                     _ => WaveformEngine::gray_scanline::<PANEL>(next, pass, self.scanline),
                 }
                 self.bus
@@ -202,4 +216,11 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
         }
         self.drive_uniform(DriveCode::Hold, 1).await
     }
+}
+
+/// Reduces two packed 4 bit pixels to black or white, the way the black and white M5GFX modes
+/// see them.
+fn binary_pair(byte: u8) -> u8 {
+    let level = |nibble: u8| if nibble >= 8 { 0x0f } else { 0 };
+    (level(byte >> 4) << 4) | level(byte & 0x0f)
 }
