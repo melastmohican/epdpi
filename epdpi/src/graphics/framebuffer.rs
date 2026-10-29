@@ -3,6 +3,7 @@
 use core::marker::PhantomData;
 
 use super::rect::Rect;
+use super::rotation::Rotation;
 use crate::error::ValidationError;
 use crate::traits::EpdPanel;
 
@@ -10,7 +11,9 @@ use crate::traits::EpdPanel;
 /// left pixel in the high nibble.
 ///
 /// With the `graphics` feature it implements `embedded-graphics` `DrawTarget` over `Gray4`,
-/// so it can live in PSRAM while the display refreshes from another buffer.
+/// so it can live in PSRAM while the display refreshes from another buffer. The `DrawTarget`
+/// follows [`set_rotation`](Self::set_rotation); `set_pixel`, `pixel`, the dirty area and the
+/// bytes always use panel coordinates.
 ///
 /// It also keeps the bounding box of everything written since the last
 /// [`clear_dirty`](Self::clear_dirty), for
@@ -20,6 +23,7 @@ use crate::traits::EpdPanel;
 pub struct EpdFrameBuffer<'a, PANEL: EpdPanel> {
     data: &'a mut [u8],
     dirty: Rect,
+    rotation: Rotation,
     _panel: PhantomData<PANEL>,
 }
 
@@ -36,8 +40,45 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
             data: slice,
             // A new buffer has not been shown yet.
             dirty: Rect::full::<PANEL>(),
+            rotation: Rotation::Deg0,
             _panel: PhantomData,
         })
+    }
+
+    /// Turns the picture that the `DrawTarget` and the `*_logical` methods draw. Does not move
+    /// pixels already in the buffer, so set it before drawing.
+    pub fn set_rotation(&mut self, rotation: Rotation) {
+        self.rotation = rotation;
+    }
+
+    /// The current orientation, [`Rotation::Deg0`] for a new buffer.
+    pub fn rotation(&self) -> Rotation {
+        self.rotation
+    }
+
+    /// Width and height of the picture in the current orientation.
+    pub fn logical_size(&self) -> (u32, u32) {
+        self.rotation.size::<PANEL>()
+    }
+
+    /// Converts a rectangle of the picture to panel pixels, for
+    /// [`mark_dirty`](Self::mark_dirty) and
+    /// [`EpdDisplay::refresh_rect`](crate::EpdDisplay::refresh_rect), which take panel pixels.
+    pub fn rect_to_panel(&self, rect: impl Into<Rect>) -> Rect {
+        self.rotation.rect_to_panel::<PANEL>(rect.into())
+    }
+
+    /// Reads one pixel of the picture in the current orientation.
+    pub fn logical_pixel(&self, x: u32, y: u32) -> Option<u8> {
+        let (px, py) = self.rotation.to_panel::<PANEL>(x, y)?;
+        self.pixel(px, py)
+    }
+
+    /// Writes one pixel of the picture in the current orientation. Outside it is ignored.
+    pub fn set_logical_pixel(&mut self, x: u32, y: u32, gray: u8) {
+        if let Some((px, py)) = self.rotation.to_panel::<PANEL>(x, y) {
+            self.set_pixel(px, py, gray);
+        }
     }
 
     /// Raw framebuffer bytes, exactly [`EpdPanel::FB_BYTES`] long.
@@ -79,7 +120,7 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
         self.as_bytes_mut().fill((g << 4) | g);
     }
 
-    /// Reads one pixel, or `None` outside the panel.
+    /// Reads one pixel in panel coordinates, or `None` outside the panel.
     pub fn pixel(&self, x: u32, y: u32) -> Option<u8> {
         if x >= PANEL::WIDTH || y >= PANEL::HEIGHT {
             return None;
@@ -88,7 +129,7 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
         Some(if x % 2 == 0 { byte >> 4 } else { byte & 0x0f })
     }
 
-    /// Writes one pixel. Coordinates outside the panel are ignored.
+    /// Writes one pixel in panel coordinates. Coordinates outside the panel are ignored.
     pub fn set_pixel(&mut self, x: u32, y: u32, gray: u8) {
         if x >= PANEL::WIDTH || y >= PANEL::HEIGHT {
             return;
@@ -121,7 +162,8 @@ mod graphics {
 
     impl<PANEL: EpdPanel> OriginDimensions for EpdFrameBuffer<'_, PANEL> {
         fn size(&self) -> Size {
-            Size::new(PANEL::WIDTH, PANEL::HEIGHT)
+            let (w, h) = self.logical_size();
+            Size::new(w, h)
         }
     }
 
@@ -135,7 +177,7 @@ mod graphics {
         {
             for Pixel(point, color) in pixels {
                 if let (Ok(x), Ok(y)) = (u32::try_from(point.x), u32::try_from(point.y)) {
-                    self.set_pixel(x, y, color.luma());
+                    self.set_logical_pixel(x, y, color.luma());
                 }
             }
             Ok(())

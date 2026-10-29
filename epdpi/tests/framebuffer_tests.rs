@@ -155,3 +155,143 @@ fn mark_dirty_takes_an_embedded_graphics_rectangle() {
     fb.mark_dirty(Rect::new(3, 4, 4, 2));
     assert_eq!(fb.dirty(), Some(Rect::new(2, 4, 6, 2)));
 }
+
+#[test]
+fn rotation_maps_corners_to_the_expected_panel_corners() {
+    // (rotation, picture size, picture corners top-left, top-right, bottom-right, bottom-left)
+    // and the panel corner each one lands on.
+    let (w, h) = (P::WIDTH - 1, P::HEIGHT - 1);
+    let cases = [
+        (Rotation::Deg0, (960, 540), [(0, 0), (w, 0), (w, h), (0, h)]),
+        (
+            Rotation::Deg90,
+            (540, 960),
+            [(w, 0), (w, h), (0, h), (0, 0)],
+        ),
+        (
+            Rotation::Deg180,
+            (960, 540),
+            [(w, h), (0, h), (0, 0), (w, 0)],
+        ),
+        (
+            Rotation::Deg270,
+            (540, 960),
+            [(0, h), (0, 0), (w, 0), (w, h)],
+        ),
+    ];
+    for (rotation, (pw, ph), expect) in cases {
+        assert_eq!(rotation.size::<P>(), (pw, ph));
+        let corners = [(0, 0), (pw - 1, 0), (pw - 1, ph - 1), (0, ph - 1)];
+        for (corner, want) in corners.into_iter().zip(expect) {
+            assert_eq!(
+                rotation.to_panel::<P>(corner.0, corner.1),
+                Some(want),
+                "{rotation:?} {corner:?}"
+            );
+        }
+        assert_eq!(rotation.to_panel::<P>(pw, 0), None);
+        assert_eq!(rotation.to_panel::<P>(0, ph), None);
+    }
+}
+
+#[test]
+fn rotation_is_a_bijection_onto_the_panel() {
+    let mut seen = vec![false; (P::WIDTH * P::HEIGHT) as usize];
+    for rotation in [
+        Rotation::Deg0,
+        Rotation::Deg90,
+        Rotation::Deg180,
+        Rotation::Deg270,
+    ] {
+        seen.fill(false);
+        let (w, h) = rotation.size::<P>();
+        for y in 0..h {
+            for x in 0..w {
+                let (px, py) = rotation.to_panel::<P>(x, y).unwrap();
+                let slot = &mut seen[(py * P::WIDTH + px) as usize];
+                assert!(!*slot, "{rotation:?} maps two pixels to ({px}, {py})");
+                *slot = true;
+            }
+        }
+        assert!(
+            seen.iter().all(|&s| s),
+            "{rotation:?} leaves panel pixels unused"
+        );
+    }
+}
+
+#[test]
+fn rotated_writes_land_in_panel_space_and_read_back() {
+    let mut buf = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut buf).unwrap();
+    assert_eq!(fb.rotation(), Rotation::Deg0);
+    fb.set_rotation(Rotation::Deg90);
+    assert_eq!(fb.logical_size(), (540, 960));
+    fb.set_logical_pixel(10, 20, 0x3);
+    // Deg90: panel x = WIDTH - 1 - y, panel y = x.
+    assert_eq!(fb.pixel(959 - 20, 10), Some(0x3));
+    assert_eq!(fb.logical_pixel(10, 20), Some(0x3));
+    assert_eq!(fb.logical_pixel(540, 0), None);
+    // Outside the picture is ignored, even where the panel has room.
+    fb.set_logical_pixel(540, 0, 0x0);
+    assert_eq!(fb.pixel(959, 540 - 1), Some(0xF));
+    // Raw access is untouched by the rotation.
+    fb.set_pixel(0, 0, 0x7);
+    assert_eq!(fb.pixel(0, 0), Some(0x7));
+}
+
+#[test]
+fn rotated_rectangles_cover_the_same_pixels() {
+    let mut buf = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut buf).unwrap();
+    for rotation in [
+        Rotation::Deg0,
+        Rotation::Deg90,
+        Rotation::Deg180,
+        Rotation::Deg270,
+    ] {
+        fb.set_rotation(rotation);
+        let rect = Rect::new(30, 50, 7, 11);
+        let panel = fb.rect_to_panel(rect);
+        let (mut x0, mut y0, mut x1, mut y1) = (u32::MAX, u32::MAX, 0, 0);
+        for y in rect.y..rect.y + rect.h {
+            for x in rect.x..rect.x + rect.w {
+                let (px, py) = rotation.to_panel::<P>(x, y).unwrap();
+                (x0, y0, x1, y1) = (x0.min(px), y0.min(py), x1.max(px), y1.max(py));
+            }
+        }
+        assert_eq!(
+            panel,
+            Rect::new(x0, y0, x1 - x0 + 1, y1 - y0 + 1),
+            "{rotation:?}"
+        );
+    }
+    // Clipped to the picture, and empty when wholly outside it.
+    fb.set_rotation(Rotation::Deg90);
+    assert_eq!(
+        fb.rect_to_panel(Rect::new(500, 900, 100, 100)),
+        fb.rect_to_panel(Rect::new(500, 900, 40, 60))
+    );
+    assert!(fb.rect_to_panel(Rect::new(540, 0, 5, 5)).is_empty());
+}
+
+#[cfg(feature = "graphics")]
+#[test]
+fn draw_target_follows_the_rotation() {
+    use embedded_graphics::{pixelcolor::Gray4, prelude::*, primitives::Rectangle};
+    let mut buf = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut buf).unwrap();
+    fb.set_rotation(Rotation::Deg270);
+    assert_eq!(fb.size(), Size::new(540, 960));
+    // A 2 by 1 picture strip at the top left: Deg270 puts the top of the picture on the
+    // left panel edge, and picture x runs up the panel.
+    fb.fill_solid(
+        &Rectangle::new(Point::new(0, 0), Size::new(2, 1)),
+        Gray4::new(1),
+    )
+    .unwrap();
+    assert_eq!(fb.pixel(0, 539), Some(1));
+    assert_eq!(fb.pixel(0, 538), Some(1));
+    assert_eq!(fb.pixel(0, 537), Some(0xF));
+    assert_eq!(fb.pixel(1, 539), Some(0xF));
+}
