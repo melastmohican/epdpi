@@ -296,3 +296,200 @@ epd_test!(
     m5_modes_run_every_pass_of_their_own_table,
     m5_modes_run_every_pass_of_their_own_table_body
 );
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn refresh_rect_drives_only_the_window_and_records_only_the_window_body() {
+    let mut prev = vec![0xFFu8; P::FB_BYTES]; // glass shows white
+    let mut line = vec![0u8; P::SCANLINE_BYTES];
+    let mut fbmem = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+    // A black block inside the window and one outside it.
+    for y in 105..110 {
+        for x in 110..120 {
+            fb.set_pixel(x, y, 0);
+        }
+    }
+    // Outside in both directions, outside in columns only (rows 105..110 are inside the
+    // window), and outside in rows only (columns 110..120 are inside).
+    for (xs, ys) in [
+        (400..420, 300..320),
+        (400..420, 105..110),
+        (110..120, 300..305),
+    ] {
+        for y in ys {
+            for x in xs.clone() {
+                fb.set_pixel(x, y, 0);
+            }
+        }
+    }
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    // x 101 widens to 100, the right edge 140 stays.
+    d.refresh_rect(&fb, RefreshMode::M5Fast, Rect::new(101, 100, 39, 20))
+        .await
+        .unwrap();
+    let bus = d.release();
+    assert_eq!(frames(&bus), 8 + 1);
+    let mut driven = false;
+    for pass in 0..8 {
+        for row in 0..ROWS {
+            let l = &bus.lines[pass * ROWS + row];
+            let in_rows = (100..120).contains(&row);
+            for (i, &b) in l[..240].iter().enumerate() {
+                // Window columns 100..140 are scanline bytes 25..35.
+                if !in_rows || !(25..35).contains(&i) {
+                    assert_eq!(b, 0, "pass {pass} row {row} byte {i} must hold");
+                } else if b != 0 {
+                    driven = true;
+                }
+            }
+        }
+    }
+    assert!(driven, "the block inside the window is driven");
+    drop(bus);
+    // Record: the block inside is stored, the one outside is not.
+    let stride = P::FB_STRIDE_BYTES;
+    assert_eq!(prev[105 * stride + 55], 0x00, "inside block recorded");
+    assert_eq!(prev[300 * stride + 200], 0xFF, "outside block not recorded");
+    assert_eq!(
+        prev[105 * stride + 200],
+        0xFF,
+        "column-outside block not recorded"
+    );
+    assert_eq!(
+        prev[300 * stride + 55],
+        0xFF,
+        "row-outside block not recorded"
+    );
+}
+
+epd_test!(
+    refresh_rect_drives_only_the_window_and_records_only_the_window,
+    refresh_rect_drives_only_the_window_and_records_only_the_window_body
+);
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn refresh_rect_with_nothing_to_draw_does_nothing_body() {
+    let mut prev = vec![0xFFu8; P::FB_BYTES];
+    let mut line = vec![0u8; P::SCANLINE_BYTES];
+    let mut fbmem = vec![0xFFu8; P::FB_BYTES];
+    let fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    d.refresh_rect(&fb, RefreshMode::M5Fast, Rect::new(0, 0, 0, 10))
+        .await
+        .unwrap();
+    d.refresh_rect(&fb, RefreshMode::M5Fast, Rect::new(2000, 0, 10, 10))
+        .await
+        .unwrap();
+    let bus = d.release();
+    assert!(bus.events.is_empty(), "no power cycle, no frames");
+}
+
+epd_test!(
+    refresh_rect_with_nothing_to_draw_does_nothing,
+    refresh_rect_with_nothing_to_draw_does_nothing_body
+);
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn quality16_lines(windowed: bool) -> Vec<Vec<u8>> {
+    let mut prev = vec![0xFFu8; P::FB_BYTES];
+    let mut line = vec![0u8; P::SCANLINE_BYTES];
+    let mut fbmem = vec![0x00u8; P::FB_BYTES];
+    let fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    if windowed {
+        d.refresh_rect(&fb, RefreshMode::Quality16, Rect::new(10, 10, 4, 4))
+            .await
+            .unwrap();
+    } else {
+        d.refresh(&fb, RefreshMode::Quality16).await.unwrap();
+    }
+    d.release().lines
+}
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn refresh_rect_on_full_panel_modes_covers_the_whole_panel_body() {
+    let windowed = quality16_lines(true).await;
+    let full = quality16_lines(false).await;
+    assert_eq!(windowed, full);
+}
+
+epd_test!(
+    refresh_rect_on_full_panel_modes_covers_the_whole_panel,
+    refresh_rect_on_full_panel_modes_covers_the_whole_panel_body
+);
+
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn refresh_dirty_shows_what_was_drawn_then_forgets_it_body() {
+    let mut prev = vec![0xFFu8; P::FB_BYTES];
+    let mut line = vec![0u8; P::SCANLINE_BYTES];
+    let mut fbmem = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+    fb.clear_dirty();
+    // Nothing drawn: nothing happens.
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    d.refresh_dirty(&mut fb, RefreshMode::M5Fast).await.unwrap();
+    assert!(d.release().events.is_empty());
+
+    // A block at x 110..120, y 105..110 is drawn, so only it is driven.
+    for y in 105..110 {
+        for x in 110..120 {
+            fb.set_pixel(x, y, 0);
+        }
+    }
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    d.refresh_dirty(&mut fb, RefreshMode::M5Fast).await.unwrap();
+    assert_eq!(fb.dirty(), None, "dirty area forgotten after a refresh");
+    let bus = d.release();
+    assert_eq!(frames(&bus), 8 + 1);
+    for pass in 0..8 {
+        for row in 0..ROWS {
+            let l = &bus.lines[pass * ROWS + row];
+            // Block columns 110..120 are scanline bytes 27..30.
+            let inside = (105..110).contains(&row);
+            for (i, &b) in l[..240].iter().enumerate() {
+                if !inside || !(27..30).contains(&i) {
+                    assert_eq!(b, 0, "pass {pass} row {row} byte {i}");
+                }
+            }
+        }
+    }
+    drop(bus);
+    assert_eq!(prev[105 * P::FB_STRIDE_BYTES + 55], 0x00);
+
+    // A second call right away does nothing.
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    d.refresh_dirty(&mut fb, RefreshMode::M5Fast).await.unwrap();
+    assert!(d.release().events.is_empty());
+}
+
+epd_test!(
+    refresh_dirty_shows_what_was_drawn_then_forgets_it,
+    refresh_dirty_shows_what_was_drawn_then_forgets_it_body
+);

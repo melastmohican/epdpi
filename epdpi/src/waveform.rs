@@ -122,6 +122,26 @@ impl WaveformEngine {
         clear_padding::<PANEL>(out);
     }
 
+    /// Clears the codes of every pixel outside `x0..x1` in a scanline, so those pixels hold. `x0`
+    /// and `x1` are pixel columns, `x1` exclusive, both even.
+    pub fn mask_scanline<PANEL: EpdPanel>(out: &mut [u8], x0: u32, x1: u32) {
+        let end = PANEL::SCANLINE_PIXEL_BYTES.min(out.len());
+        let first = (x0 as usize / 4).min(end);
+        let last = (x1 as usize).div_ceil(4).clamp(first, end);
+        out[..first].fill(0);
+        out[last..end].fill(0);
+        // Four pixels per byte, the first in bits 7:6. Keep the pixels from `x0` on in the first
+        // byte and up to `x1` in the last one.
+        let lead = x0 % 4;
+        if lead > 0 && first < last {
+            out[first] &= 0xff >> (2 * lead);
+        }
+        let trail = x1 % 4;
+        if trail > 0 && last > first {
+            out[last - 1] &= 0xffu8 << (8 - 2 * trail);
+        }
+    }
+
     /// Builds a differential black and white scanline: unchanged pixels hold, changed
     /// pixels are driven to black or white.
     pub fn mono_scanline<PANEL: EpdPanel>(prev_row: &[u8], next_row: &[u8], out: &mut [u8]) {

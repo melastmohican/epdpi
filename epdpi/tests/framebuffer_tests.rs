@@ -71,3 +71,45 @@ fn draw_target_clips_and_maps_luma() {
     assert_eq!(fb.pixel(3, 3), Some(2));
     assert_eq!(fb.pixel(4, 4), Some(0xF));
 }
+
+#[test]
+fn dirty_area_follows_writes_until_cleared() {
+    let mut mem = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut mem).unwrap();
+    // A new buffer has not been shown, so it is all dirty.
+    assert_eq!(fb.dirty(), Some(Rect::full::<P>()));
+    fb.clear_dirty();
+    assert_eq!(fb.dirty(), None);
+    // Pixels grow the bounding box.
+    fb.set_pixel(10, 20, 0);
+    assert_eq!(fb.dirty(), Some(Rect::new(10, 20, 1, 1)));
+    fb.set_pixel(14, 25, 3);
+    assert_eq!(fb.dirty(), Some(Rect::new(10, 20, 5, 6)));
+    // Writes outside the panel change nothing.
+    fb.clear_dirty();
+    fb.set_pixel(960, 0, 1);
+    fb.set_pixel(0, 540, 1);
+    assert_eq!(fb.dirty(), None);
+}
+
+#[test]
+fn fill_and_raw_access_mark_everything_dirty_and_mark_dirty_aligns() {
+    let mut mem = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut mem).unwrap();
+    fb.clear_dirty();
+    fb.fill(0x3);
+    assert_eq!(fb.dirty(), Some(Rect::full::<P>()));
+    fb.clear_dirty();
+    let _ = fb.as_bytes_mut();
+    assert_eq!(fb.dirty(), Some(Rect::full::<P>()));
+    fb.clear_dirty();
+    // Reading marks nothing, mark_dirty widens to pixel pairs and ignores empty rectangles.
+    let _ = fb.as_bytes();
+    let _ = fb.pixel(5, 5);
+    assert_eq!(fb.dirty(), None);
+    fb.mark_dirty(Rect::new(3, 4, 4, 2));
+    assert_eq!(fb.dirty(), Some(Rect::new(2, 4, 6, 2)));
+    fb.clear_dirty();
+    fb.mark_dirty(Rect::new(0, 0, 0, 0));
+    assert_eq!(fb.dirty(), None);
+}

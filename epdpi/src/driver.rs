@@ -4,6 +4,7 @@ use core::marker::PhantomData;
 
 use crate::error::ValidationError;
 use crate::framebuffer::EpdFrameBuffer;
+use crate::rect::Rect;
 use crate::traits::{DriveCode, EpdPanel, EpdParallelBus};
 use crate::waveform::{CLEAR_PASSES, RefreshMode, WaveformEngine};
 
@@ -138,20 +139,84 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
         fb: &EpdFrameBuffer<'_, PANEL>,
         mode: RefreshMode,
     ) -> Result<(), BUS::Error> {
+        self.refresh_window(fb, mode, Rect::full::<PANEL>()).await
+    }
+
+    /// Like [`refresh`](Self::refresh) but only for the pixels inside `rect`, the way M5GFX's
+    /// `display(x, y, w, h)` works. Everything outside holds, and the record of what the glass
+    /// shows is only updated inside, so changes made to `fb` elsewhere are neither shown nor
+    /// forgotten: a later refresh of that area still sees them.
+    ///
+    /// `rect` is clipped to the panel and widened to whole pixel pairs. An empty rectangle
+    /// does nothing, not even a power cycle. Every row is still clocked, so a window is not
+    /// faster than a full refresh with the same mode; the gain is that nothing outside it
+    /// is driven and the passes run only for it.
+    ///
+    /// [`Quality16`](RefreshMode::Quality16) and [`Clear`](RefreshMode::Clear) always cover the
+    /// whole panel, `rect` is ignored for them.
+    pub async fn refresh_rect(
+        &mut self,
+        fb: &EpdFrameBuffer<'_, PANEL>,
+        mode: RefreshMode,
+        rect: Rect,
+    ) -> Result<(), BUS::Error> {
+        if matches!(mode, RefreshMode::Quality16 | RefreshMode::Clear) {
+            return self.refresh(fb, mode).await;
+        }
+        let Some(window) = rect.aligned::<PANEL>() else {
+            return Ok(());
+        };
+        self.refresh_window(fb, mode, window).await
+    }
+
+    /// Refreshes only the area of `fb` written since the last call, like M5GFX's `display()`
+    /// with no arguments, then forgets it. Does nothing when nothing changed. A buffer that
+    /// was just created counts as fully dirty. On an error the dirty area is kept, so the call
+    /// can be repeated.
+    ///
+    /// Only drawing and [`EpdFrameBuffer::mark_dirty`] are tracked. A plain
+    /// [`refresh`](Self::refresh) does not clear the dirty area.
+    pub async fn refresh_dirty(
+        &mut self,
+        fb: &mut EpdFrameBuffer<'_, PANEL>,
+        mode: RefreshMode,
+    ) -> Result<(), BUS::Error> {
+        let Some(area) = fb.dirty() else {
+            return Ok(());
+        };
+        self.refresh_rect(fb, mode, area).await?;
+        fb.clear_dirty();
+        Ok(())
+    }
+
+    async fn refresh_window(
+        &mut self,
+        fb: &EpdFrameBuffer<'_, PANEL>,
+        mode: RefreshMode,
+        window: Rect,
+    ) -> Result<(), BUS::Error> {
         self.bus.set_power(true).await?;
-        let result = self.run_refresh(fb, mode).await;
+        let result = self.run_refresh(fb, mode, window).await;
         let off = self.bus.set_power(false).await;
         result?;
         off?;
         let record = &mut self.prev_buffer[..PANEL::FB_BYTES];
-        match mode {
-            RefreshMode::Clear => record.fill(0xff),
-            _ if mode.is_binary() => {
-                for (dst, src) in record.iter_mut().zip(fb.as_bytes()) {
+        if mode == RefreshMode::Clear {
+            record.fill(0xff);
+            return Ok(());
+        }
+        let stride = PANEL::FB_STRIDE_BYTES;
+        let bytes = window.x as usize / 2..(window.x + window.w) as usize / 2;
+        for row in window.y as usize..(window.y + window.h) as usize {
+            let span = row * stride + bytes.start..row * stride + bytes.end;
+            let src = &fb.as_bytes()[span.clone()];
+            if mode.is_binary() {
+                for (dst, src) in record[span].iter_mut().zip(src) {
                     *dst = binary_pair(*src);
                 }
+            } else {
+                record[span].copy_from_slice(src);
             }
-            _ => record.copy_from_slice(fb.as_bytes()),
         }
         Ok(())
     }
@@ -160,6 +225,7 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
         &mut self,
         fb: &EpdFrameBuffer<'_, PANEL>,
         mode: RefreshMode,
+        window: Rect,
     ) -> Result<(), BUS::Error> {
         if mode == RefreshMode::Clear {
             return self.clear_cycle().await;
@@ -169,9 +235,21 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
             self.drive_uniform(DriveCode::Lighten, CLEAR_PASSES).await?;
         }
         let stride = PANEL::FB_STRIDE_BYTES;
+        let rows = window.y as usize..(window.y + window.h) as usize;
+        let columns = window.x..window.x + window.w;
+        let whole_width = window.x == 0 && window.w == PANEL::WIDTH;
         for pass in 0..WaveformEngine::passes::<PANEL>(mode) {
             self.bus.start_frame().await?;
             for row in 0..PANEL::HEIGHT as usize {
+                if !rows.contains(&row) {
+                    // Outside the window every pixel holds.
+                    WaveformEngine::uniform_scanline::<PANEL>(DriveCode::Hold, self.scanline);
+                    self.bus
+                        .write_scanline(&self.scanline[..PANEL::SCANLINE_BYTES])
+                        .await?;
+                    self.bus.next_row().await?;
+                    continue;
+                }
                 let range = row * stride..(row + 1) * stride;
                 let next = &fb.as_bytes()[range.clone()];
                 match mode {
@@ -206,6 +284,13 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
                         );
                     }
                     _ => WaveformEngine::gray_scanline::<PANEL>(next, pass, self.scanline),
+                }
+                if !whole_width {
+                    WaveformEngine::mask_scanline::<PANEL>(
+                        self.scanline,
+                        columns.start,
+                        columns.end,
+                    );
                 }
                 self.bus
                     .write_scanline(&self.scanline[..PANEL::SCANLINE_BYTES])

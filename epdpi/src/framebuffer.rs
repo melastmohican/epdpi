@@ -3,6 +3,7 @@
 use core::marker::PhantomData;
 
 use crate::error::ValidationError;
+use crate::rect::Rect;
 use crate::traits::EpdPanel;
 
 /// Framebuffer holding 16 gray levels (0 black, 15 white), two pixels per byte with the
@@ -10,8 +11,15 @@ use crate::traits::EpdPanel;
 ///
 /// With the `graphics` feature it implements `embedded-graphics` `DrawTarget` over `Gray4`,
 /// so it can live in PSRAM while the display refreshes from another buffer.
+///
+/// It also keeps the bounding box of everything written since the last
+/// [`clear_dirty`](Self::clear_dirty), for
+/// [`EpdDisplay::refresh_dirty`](crate::EpdDisplay::refresh_dirty). Writing through
+/// [`as_bytes_mut`](Self::as_bytes_mut) marks the whole buffer dirty, since the writes cannot be
+/// tracked.
 pub struct EpdFrameBuffer<'a, PANEL: EpdPanel> {
     data: &'a mut [u8],
+    dirty: Rect,
     _panel: PhantomData<PANEL>,
 }
 
@@ -26,6 +34,8 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
         }
         Ok(Self {
             data: slice,
+            // A new buffer has not been shown yet.
+            dirty: Rect::full::<PANEL>(),
             _panel: PhantomData,
         })
     }
@@ -35,9 +45,32 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
         &self.data[..PANEL::FB_BYTES]
     }
 
-    /// Mutable raw framebuffer bytes.
+    /// Mutable raw framebuffer bytes. Marks the whole buffer dirty.
     pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        self.dirty = Rect::full::<PANEL>();
         &mut self.data[..PANEL::FB_BYTES]
+    }
+
+    /// The bounding box of everything written since the last [`clear_dirty`](Self::clear_dirty),
+    /// or `None` when nothing was. A new buffer starts out fully dirty.
+    pub fn dirty(&self) -> Option<Rect> {
+        if self.dirty.is_empty() {
+            None
+        } else {
+            Some(self.dirty)
+        }
+    }
+
+    /// Adds `rect` to the dirty area, for callers that changed pixels another way.
+    pub fn mark_dirty(&mut self, rect: Rect) {
+        if let Some(rect) = rect.aligned::<PANEL>() {
+            self.dirty = self.dirty.union(rect);
+        }
+    }
+
+    /// Forgets the dirty area, as after showing it.
+    pub fn clear_dirty(&mut self) {
+        self.dirty = Rect::new(0, 0, 0, 0);
     }
 
     /// Fills the whole buffer with one gray level (0 to 15).
@@ -68,6 +101,7 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
         } else {
             (*byte & 0xf0) | g
         };
+        self.dirty = self.dirty.union(Rect::new(x, y, 1, 1));
     }
 }
 

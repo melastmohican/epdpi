@@ -265,3 +265,69 @@ fn m5_scanline_drives_only_the_changed_pairs_of_a_mixed_row() {
     WaveformEngine::m5_scanline::<P>(RefreshMode::M5Fast, &prev, &next, 0, &mut out);
     assert_ne!(out[1], 0);
 }
+
+#[test]
+fn rect_aligns_to_pixel_pairs_and_clips_to_the_panel() {
+    // Odd left edge rounds down, odd right edge rounds up.
+    assert_eq!(
+        Rect::new(3, 5, 4, 2).aligned::<P>(),
+        Some(Rect::new(2, 5, 6, 2))
+    );
+    // Already aligned stays.
+    assert_eq!(
+        Rect::new(4, 0, 8, 1).aligned::<P>(),
+        Some(Rect::new(4, 0, 8, 1))
+    );
+    // Clipped to the panel.
+    assert_eq!(
+        Rect::new(950, 530, 100, 100).aligned::<P>(),
+        Some(Rect::new(950, 530, 10, 10))
+    );
+    // Nothing left.
+    assert_eq!(Rect::new(0, 0, 0, 5).aligned::<P>(), None);
+    assert_eq!(Rect::new(0, 0, 5, 0).aligned::<P>(), None);
+    assert_eq!(Rect::new(960, 0, 5, 5).aligned::<P>(), None);
+    assert_eq!(Rect::new(0, 540, 5, 5).aligned::<P>(), None);
+    // Huge sizes do not overflow.
+    assert_eq!(
+        Rect::new(1, 1, u32::MAX, u32::MAX).aligned::<P>(),
+        Some(Rect::new(0, 1, 960, 539))
+    );
+}
+
+#[test]
+fn rect_union_grows_and_ignores_empty() {
+    let a = Rect::new(10, 20, 5, 5);
+    let b = Rect::new(30, 10, 5, 5);
+    assert_eq!(a.union(b), Rect::new(10, 10, 25, 15));
+    assert_eq!(a.union(Rect::new(0, 0, 0, 0)), a);
+    assert_eq!(Rect::new(0, 0, 0, 9).union(b), b);
+    assert_eq!(Rect::full::<P>(), Rect::new(0, 0, 960, 540));
+}
+
+#[test]
+fn mask_scanline_keeps_only_the_pixels_inside_the_columns() {
+    // Pixels 2..6: the low half of byte 0 and the high half of byte 1.
+    let mut out = vec![0xFFu8; P::SCANLINE_PIXEL_BYTES];
+    out.resize(P::SCANLINE_BYTES, 0);
+    WaveformEngine::mask_scanline::<P>(&mut out, 2, 6);
+    assert_eq!(out[0], 0x0F);
+    assert_eq!(out[1], 0xF0);
+    assert!(out[2..].iter().all(|&b| b == 0));
+    // Whole bytes only.
+    let mut out = vec![0xFFu8; P::SCANLINE_PIXEL_BYTES];
+    out.resize(P::SCANLINE_BYTES, 0);
+    WaveformEngine::mask_scanline::<P>(&mut out, 8, 16);
+    assert!(out[..2].iter().all(|&b| b == 0));
+    assert_eq!(&out[2..4], &[0xFF, 0xFF]);
+    assert!(out[4..].iter().all(|&b| b == 0));
+    // Both edges in one byte.
+    let mut out = vec![0xFFu8; P::SCANLINE_PIXEL_BYTES];
+    WaveformEngine::mask_scanline::<P>(&mut out, 2, 4);
+    assert_eq!(out[0], 0x0F);
+    assert!(out[1..].iter().all(|&b| b == 0));
+    // The full width changes nothing.
+    let mut out = vec![0xFFu8; P::SCANLINE_PIXEL_BYTES];
+    WaveformEngine::mask_scanline::<P>(&mut out, 0, 960);
+    assert!(out.iter().all(|&b| b == 0xFF));
+}

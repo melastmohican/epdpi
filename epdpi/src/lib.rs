@@ -41,6 +41,7 @@ pub mod error;
 pub mod framebuffer;
 pub mod panels;
 pub mod prelude;
+pub mod rect;
 pub mod traits;
 pub mod waveform;
 
@@ -51,5 +52,6 @@ pub use crate::framebuffer::EpdFrameBuffer;
 pub use crate::panels::{
     ED047TC1_LUT, Ed047tc1, M5_ERASER_LUT, M5_FAST_LUT, M5_FASTEST_LUT, M5_QUALITY_LUT, M5_TEXT_LUT,
 };
+pub use crate::rect::Rect;
 pub use crate::traits::{ColorMode, DriveCode, EpdPanel, EpdParallelBus};
 pub use crate::waveform::{RefreshMode, WaveformEngine};
