@@ -10,7 +10,7 @@
 //! | Bus | Row data phase (248 bytes) | Needs |
 //! | :--- | :--- | :--- |
 //! | [`fast_bus::Esp32s3Bus`] | about 62 us | any ESP32-S3 HAL, no feature |
-//! | `lcd_bus::LcdBus` | about 22 us | `esp32s3` and `blocking` features, `esp-hal` |
+//! | `lcd_bus::LcdBus` | about 22 us | `esp32s3` feature, `esp-hal`. Blocking and async |
 //!
 //! # Chips
 //!
@@ -32,6 +32,6 @@
 
 pub mod fast_bus;
 
-#[cfg(all(feature = "esp32s3", feature = "blocking"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "esp32s3", feature = "blocking"))))]
+#[cfg(feature = "esp32s3")]
+#[cfg_attr(docsrs, doc(cfg(feature = "esp32s3")))]
 pub mod lcd_bus;

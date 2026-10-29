@@ -7,10 +7,20 @@
 //! phase is then set by the bus clock: 22 us for a 248 byte row at 16 MHz on a PaperDIY,
 //! against 62 us for the register-level GPIO bus.
 //!
-//! This bus is blocking. Needs the `esp32s3` and `blocking` features.
+//! Works in both modes. With the `blocking` feature (default) the I8080 is `Blocking` and the
+//! delay is any `embedded_hal::delay::DelayNs`, such as `esp_hal::delay::Delay`. Without it
+//! the I8080 is `Async`, a row waits for the DMA with `wait_for_done`, and the delay is an
+//! `embedded_hal_async::delay::DelayNs`, such as `embassy_time::Delay`. Needs the `esp32s3`
+//! feature.
 
+#[cfg(feature = "blocking")]
+use embedded_hal::delay::DelayNs;
+#[cfg(not(feature = "blocking"))]
+use embedded_hal_async::delay::DelayNs;
+#[cfg(not(feature = "blocking"))]
+use esp_hal::Async;
+#[cfg(feature = "blocking")]
 use esp_hal::Blocking;
-use esp_hal::delay::Delay;
 use esp_hal::dma::{DmaError, DmaTxBuf};
 use esp_hal::gpio::Output;
 use esp_hal::lcd_cam::lcd::i8080::{Command, I8080};
@@ -28,16 +38,21 @@ pub enum LcdBusError {
     TooLong,
 }
 
-/// See the module docs.
-pub struct LcdBus {
-    i8080: Option<I8080<'static, Blocking>>,
+#[cfg(feature = "blocking")]
+type Mode = Blocking;
+#[cfg(not(feature = "blocking"))]
+type Mode = Async;
+
+/// See the module docs. `D` times the settle delays and the frame start pulses.
+pub struct LcdBus<D> {
+    i8080: Option<I8080<'static, Mode>>,
     buf: Option<DmaTxBuf>,
     ckv: Output<'static>,
     spv: Output<'static>,
     oe: Output<'static>,
     le: Output<'static>,
     pwr: Output<'static>,
-    delay: Delay,
+    delay: D,
 }
 
 /// The five control lines that stay plain GPIO. CL (write strobe) and SPH (chip select)
@@ -56,13 +71,15 @@ pub struct LcdControlPins<'d> {
     pub pwr: Output<'d>,
 }
 
-impl LcdBus {
+impl<D> LcdBus<D> {
     /// Wraps a configured `I8080` (data pins, write strobe and chip select attached), a DMA
-    /// buffer at least one scanline long (`EpdPanel::SCANLINE_BYTES`) and the control pins.
+    /// buffer at least one scanline long (`EpdPanel::SCANLINE_BYTES`), the control pins and a
+    /// delay.
     pub fn new(
-        i8080: I8080<'static, Blocking>,
+        i8080: I8080<'static, Mode>,
         buf: DmaTxBuf,
         control: LcdControlPins<'static>,
+        delay: D,
     ) -> Self {
         let LcdControlPins {
             ckv,
@@ -79,51 +96,55 @@ impl LcdBus {
             oe,
             le,
             pwr,
-            delay: Delay::new(),
+            delay,
         }
     }
 }
 
-impl EpdParallelBus for LcdBus {
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+impl<D: DelayNs> EpdParallelBus for LcdBus<D> {
     type Error = LcdBusError;
 
-    fn set_power(&mut self, on: bool) -> Result<(), Self::Error> {
+    async fn set_power(&mut self, on: bool) -> Result<(), Self::Error> {
         if on {
             self.oe.set_high();
-            self.delay.delay_micros(100);
+            self.delay.delay_us(100).await;
             self.pwr.set_high();
-            self.delay.delay_micros(100);
+            self.delay.delay_us(100).await;
             self.spv.set_high();
-            self.delay.delay_millis(1);
+            self.delay.delay_ms(1).await;
         } else {
-            self.delay.delay_millis(1);
+            self.delay.delay_ms(1).await;
             self.pwr.set_low();
-            self.delay.delay_micros(10);
+            self.delay.delay_us(10).await;
             self.oe.set_low();
-            self.delay.delay_micros(100);
+            self.delay.delay_us(100).await;
             self.spv.set_low();
         }
         Ok(())
     }
 
-    fn start_frame(&mut self) -> Result<(), Self::Error> {
+    async fn start_frame(&mut self) -> Result<(), Self::Error> {
         self.spv.set_low();
-        self.delay.delay_micros(1);
+        self.delay.delay_us(1).await;
         self.ckv.set_low();
-        self.delay.delay_micros(3);
+        self.delay.delay_us(3).await;
         self.ckv.set_high();
-        self.delay.delay_micros(1);
+        self.delay.delay_us(1).await;
         self.spv.set_high();
         for _ in 0..3 {
-            self.delay.delay_micros(3);
+            self.delay.delay_us(3).await;
             self.ckv.set_low();
-            self.delay.delay_micros(3);
+            self.delay.delay_us(3).await;
             self.ckv.set_high();
         }
         Ok(())
     }
 
-    fn write_scanline(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+    async fn write_scanline(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         let (Some(i8080), Some(mut buf)) = (self.i8080.take(), self.buf.take()) else {
             return Err(LcdBusError::Lost);
         };
@@ -139,7 +160,14 @@ impl EpdParallelBus for LcdBus {
                 // CKV rises once the DMA runs, so it is high for the data phase only and
                 // not for the 6.5 us of `send()` setup before it.
                 self.ckv.set_high();
+                #[cfg(feature = "blocking")]
                 let (result, i8080, buf) = transfer.wait();
+                #[cfg(not(feature = "blocking"))]
+                let (result, i8080, buf) = {
+                    let mut transfer = transfer;
+                    transfer.wait_for_done().await;
+                    transfer.wait()
+                };
                 self.i8080 = Some(i8080);
                 self.buf = Some(buf);
                 result.map_err(LcdBusError::Dma)
@@ -152,13 +180,13 @@ impl EpdParallelBus for LcdBus {
         }
     }
 
-    fn next_row(&mut self) -> Result<(), Self::Error> {
+    async fn next_row(&mut self) -> Result<(), Self::Error> {
         self.ckv.set_low();
         self.le.set_high();
         Ok(())
     }
 
-    fn end_frame(&mut self) -> Result<(), Self::Error> {
+    async fn end_frame(&mut self) -> Result<(), Self::Error> {
         self.le.set_low();
         self.ckv.set_high();
         Ok(())

@@ -31,7 +31,7 @@ pollster = "1"
 [features]
 default = ["blocking"]
 # Blocking `embedded-hal` API, forwarded to `epdpi`. Turn off with `default-features = false`
-# for the async API. `LcdBus` is blocking only for now.
+# for the async API.
 blocking = ["epdpi/blocking"]
 defmt = ["dep:defmt", "epdpi/defmt"]
 # The ESP32-S3, the only chip so far. Pulls in `esp-hal` and enables `lcd_bus`.
