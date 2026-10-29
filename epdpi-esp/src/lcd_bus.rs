@@ -134,9 +134,11 @@ impl EpdParallelBus for LcdBus {
         }
         buf.fill(data);
         self.le.set_low();
-        self.ckv.set_high();
         match i8080.send(Command::<u8>::None, 0, buf) {
             Ok(transfer) => {
+                // CKV rises once the DMA runs, so it is high for the data phase only and
+                // not for the 6.5 us of `send()` setup before it.
+                self.ckv.set_high();
                 let (result, i8080, buf) = transfer.wait();
                 self.i8080 = Some(i8080);
                 self.buf = Some(buf);
