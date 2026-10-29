@@ -113,3 +113,45 @@ fn fill_and_raw_access_mark_everything_dirty_and_mark_dirty_aligns() {
     fb.mark_dirty(Rect::new(0, 0, 0, 0));
     assert_eq!(fb.dirty(), None);
 }
+
+#[cfg(feature = "graphics")]
+#[test]
+fn embedded_graphics_rectangles_convert_to_rects() {
+    use embedded_graphics::{
+        geometry::{Point, Size},
+        primitives::Rectangle,
+    };
+    let rect = |x, y, w, h| Rect::from(Rectangle::new(Point::new(x, y), Size::new(w, h)));
+    assert_eq!(rect(10, 20, 30, 40), Rect::new(10, 20, 30, 40));
+    // A negative corner shrinks the rectangle from that side.
+    assert_eq!(rect(-10, -5, 30, 20), Rect::new(0, 0, 20, 15));
+    // No area, or wholly above and left of the origin: empty.
+    assert!(rect(5, 5, 0, 10).is_empty());
+    assert!(rect(5, 5, 10, 0).is_empty());
+    assert!(rect(-30, 0, 20, 10).is_empty());
+    assert!(rect(0, -30, 10, 20).is_empty());
+    // Extreme sizes do not overflow.
+    assert_eq!(
+        rect(0, 0, u32::MAX, u32::MAX),
+        Rect::new(0, 0, u32::MAX, u32::MAX)
+    );
+    assert_eq!(rect(i32::MIN, i32::MIN, u32::MAX, u32::MAX).x, 0);
+}
+
+#[cfg(feature = "graphics")]
+#[test]
+fn mark_dirty_takes_an_embedded_graphics_rectangle() {
+    use embedded_graphics::{
+        geometry::{Point, Size},
+        primitives::Rectangle,
+    };
+    let mut mem = vec![0xFFu8; P::FB_BYTES];
+    let mut fb = EpdFrameBuffer::<P>::new(&mut mem).unwrap();
+    fb.clear_dirty();
+    fb.mark_dirty(Rectangle::new(Point::new(-4, 10), Size::new(9, 3)));
+    // x -4 clips to 0, width 5 widens to 6 (a whole pair).
+    assert_eq!(fb.dirty(), Some(Rect::new(0, 10, 6, 3)));
+    fb.clear_dirty();
+    fb.mark_dirty(Rect::new(3, 4, 4, 2));
+    assert_eq!(fb.dirty(), Some(Rect::new(2, 4, 6, 2)));
+}

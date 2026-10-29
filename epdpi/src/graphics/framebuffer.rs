@@ -2,8 +2,8 @@
 
 use core::marker::PhantomData;
 
+use super::rect::Rect;
 use crate::error::ValidationError;
-use crate::rect::Rect;
 use crate::traits::EpdPanel;
 
 /// Framebuffer holding 16 gray levels (0 black, 15 white), two pixels per byte with the
@@ -62,8 +62,8 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
     }
 
     /// Adds `rect` to the dirty area, for callers that changed pixels another way.
-    pub fn mark_dirty(&mut self, rect: Rect) {
-        if let Some(rect) = rect.aligned::<PANEL>() {
+    pub fn mark_dirty(&mut self, rect: impl Into<Rect>) {
+        if let Some(rect) = rect.into().aligned::<PANEL>() {
             self.dirty = self.dirty.union(rect);
         }
     }

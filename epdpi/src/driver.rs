@@ -3,8 +3,7 @@
 use core::marker::PhantomData;
 
 use crate::error::ValidationError;
-use crate::framebuffer::EpdFrameBuffer;
-use crate::rect::Rect;
+use crate::graphics::{EpdFrameBuffer, Rect};
 use crate::traits::{DriveCode, EpdPanel, EpdParallelBus};
 use crate::waveform::{CLEAR_PASSES, RefreshMode, WaveformEngine};
 
@@ -142,10 +141,14 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
         self.refresh_window(fb, mode, Rect::full::<PANEL>()).await
     }
 
-    /// Like [`refresh`](Self::refresh) but only for the pixels inside `rect`, the way M5GFX's
-    /// `display(x, y, w, h)` works. Everything outside holds, and the record of what the glass
-    /// shows is only updated inside, so changes made to `fb` elsewhere are neither shown nor
-    /// forgotten: a later refresh of that area still sees them.
+    /// Like [`refresh`](Self::refresh) but only for the pixels inside `rect`, a [`Rect`] or, with
+    /// the `graphics` feature, an `embedded-graphics` `Rectangle`. Everything outside holds, and
+    /// the record of what the glass shows is only updated inside, so changes made to `fb`
+    /// elsewhere are neither shown nor forgotten: a later refresh of that area still sees them.
+    ///
+    /// This differs from M5GFX's `display(x, y, w, h)`, which adds the rectangle to everything
+    /// drawn since the last update and refreshes all of it. For that, use
+    /// [`EpdFrameBuffer::mark_dirty`] and [`refresh_dirty`](Self::refresh_dirty).
     ///
     /// `rect` is clipped to the panel and widened to whole pixel pairs. An empty rectangle
     /// does nothing, not even a power cycle. Every row is still clocked, so a window is not
@@ -158,12 +161,12 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
         &mut self,
         fb: &EpdFrameBuffer<'_, PANEL>,
         mode: RefreshMode,
-        rect: Rect,
+        rect: impl Into<Rect>,
     ) -> Result<(), BUS::Error> {
         if matches!(mode, RefreshMode::Quality16 | RefreshMode::Clear) {
             return self.refresh(fb, mode).await;
         }
-        let Some(window) = rect.aligned::<PANEL>() else {
+        let Some(window) = rect.into().aligned::<PANEL>() else {
             return Ok(());
         };
         self.refresh_window(fb, mode, window).await

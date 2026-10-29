@@ -16,6 +16,26 @@ pub struct Rect {
     pub h: u32,
 }
 
+#[cfg(feature = "graphics")]
+#[cfg_attr(docsrs, doc(cfg(feature = "graphics")))]
+impl From<embedded_graphics_core::primitives::Rectangle> for Rect {
+    /// Converts an `embedded-graphics` rectangle. A negative top left corner shrinks it from
+    /// that side, and a rectangle with no area, or one that lies wholly above or left of the
+    /// origin, becomes empty.
+    fn from(rectangle: embedded_graphics_core::primitives::Rectangle) -> Self {
+        let x0 = i64::from(rectangle.top_left.x);
+        let y0 = i64::from(rectangle.top_left.y);
+        let x1 = x0 + i64::from(rectangle.size.width);
+        let y1 = y0 + i64::from(rectangle.size.height);
+        let (x0, y0) = (x0.max(0), y0.max(0));
+        if x1 <= x0 || y1 <= y0 {
+            return Self::new(0, 0, 0, 0);
+        }
+        let to_u32 = |value: i64| u32::try_from(value).unwrap_or(u32::MAX);
+        Self::new(to_u32(x0), to_u32(y0), to_u32(x1 - x0), to_u32(y1 - y0))
+    }
+}
+
 impl Rect {
     /// A rectangle from its top left corner and size.
     pub const fn new(x: u32, y: u32, w: u32, h: u32) -> Self {
