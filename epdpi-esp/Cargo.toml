@@ -37,5 +37,10 @@ defmt = ["dep:defmt", "epdpi/defmt"]
 # The ESP32-S3, the only chip so far. Pulls in `esp-hal` and enables `lcd_bus`.
 esp32s3 = ["dep:esp-hal", "esp-hal/esp32s3"]
 
+# docs.rs builds the default features on its Linux host. `esp32s3` needs the Xtensa target, so
+# `lcd_bus` is a prose-only page there (see `docs/lcd_bus.md`). Never `all-features` here.
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lints]
 workspace = true

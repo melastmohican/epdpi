@@ -35,3 +35,9 @@ pub mod fast_bus;
 #[cfg(feature = "esp32s3")]
 #[cfg_attr(docsrs, doc(cfg(feature = "esp32s3")))]
 pub mod lcd_bus;
+
+/// Prose-only stand-in for docs.rs, which cannot build the `esp32s3` feature. The real module
+/// is above, with the same text.
+#[cfg(all(docsrs, not(feature = "esp32s3")))]
+#[doc = include_str!("../docs/lcd_bus.md")]
+pub mod lcd_bus {}
