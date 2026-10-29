@@ -177,6 +177,9 @@ impl WaveformEngine {
     ///
     /// Passes below `ERASER_PASSES` erase from the gray in `prev_row` (text mode only), the rest
     /// draw the gray in `next_row`. Any other mode fills the scanline with holds.
+    ///
+    /// This builds the [`M5Pass`] tables on every call. To build many rows of one pass, make the
+    /// [`M5Pass`] once and call [`M5Pass::scanline`] for each row, as the driver does.
     pub fn m5_scanline<PANEL: EpdPanel>(
         mode: RefreshMode,
         prev_row: &[u8],
@@ -184,27 +187,46 @@ impl WaveformEngine {
         pass: usize,
         out: &mut [u8],
     ) {
+        M5Pass::new::<PANEL>(mode, pass).scanline::<PANEL>(prev_row, next_row, out);
+    }
+}
+
+/// The per-pass tables for the M5GFX modes that drive only the pixel pairs that need it
+/// ([`RefreshMode::M5Text`], [`M5Fast`](RefreshMode::M5Fast), [`M5Fastest`](RefreshMode::M5Fastest)).
+///
+/// Everything that depends on the pass alone is looked up once here, so building a row is one
+/// table read per pair of pixels. See [`WaveformEngine::m5_scanline`] for what a pass drives.
+pub struct M5Pass {
+    mode: RefreshMode,
+    /// False for any other mode: every row is holds.
+    driven: bool,
+    /// The row that picks the codes: the previous picture while erasing, the next one after.
+    from_prev: bool,
+    /// For each packed byte (two pixels) of the source row, the codes of both pixels, the left
+    /// one in bits 3:2 and the right one in bits 1:0.
+    codes: [u8; 256],
+    /// The byte with both pixels reduced to black or white in the black and white modes, the
+    /// byte itself otherwise. Two pairs are the same when their reduced bytes are.
+    reduced: [u8; 256],
+}
+
+impl M5Pass {
+    /// The tables for `pass` of `mode`.
+    pub fn new<PANEL: EpdPanel>(mode: RefreshMode, pass: usize) -> Self {
         let (erase, lut, passes) = match mode {
             RefreshMode::M5Text => (true, PANEL::TEXT_LUT, PANEL::TEXT_PASSES),
             RefreshMode::M5Fast => (false, PANEL::FAST_LUT, PANEL::FAST_PASSES),
             RefreshMode::M5Fastest => (false, PANEL::FASTEST_LUT, PANEL::FASTEST_PASSES),
             _ => {
-                Self::uniform_scanline::<PANEL>(DriveCode::Hold, out);
-                return;
+                return Self {
+                    mode,
+                    driven: false,
+                    from_prev: false,
+                    codes: [0; 256],
+                    reduced: [0; 256],
+                };
             }
         };
-        // Most rows of a typical screen do not change. Text mode skips pairs that are white
-        // before and after, the black and white modes pairs that are equal, so a row that is
-        // all white (text) or identical (fast) holds everywhere and needs no per-pair work.
-        let idle = if mode == RefreshMode::M5Text {
-            prev_row.iter().all(|&b| b == 0xff) && next_row.iter().all(|&b| b == 0xff)
-        } else {
-            prev_row == next_row
-        };
-        if idle {
-            Self::uniform_scanline::<PANEL>(DriveCode::Hold, out);
-            return;
-        }
         let binary = mode.is_binary();
         // Black and white modes see only the two end levels.
         let level = |nibble: u8| {
@@ -216,15 +238,14 @@ impl WaveformEngine {
                 0
             }
         };
-        let both = |byte: u8| (level(byte >> 4) << 4) | level(byte & 0x0f);
         let drawing = !erase || pass >= PANEL::ERASER_PASSES;
+        let step = if erase && drawing {
+            pass - PANEL::ERASER_PASSES
+        } else {
+            pass
+        };
         let code = |nibble: u8| {
             if drawing {
-                let step = if erase {
-                    pass - PANEL::ERASER_PASSES
-                } else {
-                    pass
-                };
                 lut.get(usize::from(level(nibble)) * passes + step)
             } else {
                 PANEL::ERASER_LUT.get(usize::from(nibble) * PANEL::ERASER_PASSES + pass)
@@ -232,26 +253,63 @@ impl WaveformEngine {
             .copied()
             .unwrap_or(0)
         };
-        let active = |old: u8, new: u8| {
-            if mode == RefreshMode::M5Text {
-                !(old == 0xff && new == 0xff)
-            } else {
-                both(old) != both(new)
-            }
+        let mut codes = [0u8; 256];
+        let mut reduced = [0u8; 256];
+        for byte in 0..=255u8 {
+            let (hi, lo) = (byte >> 4, byte & 0x0f);
+            codes[usize::from(byte)] = (code(hi) << 2) | code(lo);
+            reduced[usize::from(byte)] = (level(hi) << 4) | level(lo);
+        }
+        Self {
+            mode,
+            driven: true,
+            from_prev: !drawing,
+            codes,
+            reduced,
+        }
+    }
+
+    /// Fills `out` with the scanline for one row: `prev_row` and `next_row` are the packed rows
+    /// of the previous and the next picture.
+    pub fn scanline<PANEL: EpdPanel>(&self, prev_row: &[u8], next_row: &[u8], out: &mut [u8]) {
+        if !self.driven {
+            WaveformEngine::uniform_scanline::<PANEL>(DriveCode::Hold, out);
+            return;
+        }
+        let text = self.mode == RefreshMode::M5Text;
+        // Most rows of a typical screen do not change. Text mode skips pairs that are white
+        // before and after, the black and white modes pairs that are equal, so a row that is
+        // all white (text) or identical (fast) holds everywhere and needs no per-pair work.
+        let idle = if text {
+            prev_row.iter().all(|&b| b == 0xff) && next_row.iter().all(|&b| b == 0xff)
+        } else {
+            prev_row == next_row
         };
-        let source = if drawing { next_row } else { prev_row };
-        let pair = |index: usize| {
-            let (old, new, src) = (prev_row[index], next_row[index], source[index]);
-            if active(old, new) {
-                [code(src >> 4), code(src & 0x0f)]
-            } else {
-                [0, 0]
-            }
-        };
-        for (i, dst) in out.iter_mut().take(PANEL::SCANLINE_PIXEL_BYTES).enumerate() {
-            let [a, b] = pair(2 * i);
-            let [c, d] = pair(2 * i + 1);
-            *dst = pack([a, b, c, d]);
+        if idle {
+            WaveformEngine::uniform_scanline::<PANEL>(DriveCode::Hold, out);
+            return;
+        }
+        let source = if self.from_prev { prev_row } else { next_row };
+        let pairs = prev_row
+            .chunks_exact(2)
+            .zip(next_row.chunks_exact(2))
+            .zip(source.chunks_exact(2));
+        for (dst, ((old, new), src)) in out.iter_mut().take(PANEL::SCANLINE_PIXEL_BYTES).zip(pairs)
+        {
+            let drive = |i: usize| {
+                let (o, n) = (usize::from(old[i]), usize::from(new[i]));
+                let active = if text {
+                    !(o == 0xff && n == 0xff)
+                } else {
+                    self.reduced[o] != self.reduced[n]
+                };
+                if active {
+                    self.codes[usize::from(src[i])]
+                } else {
+                    0
+                }
+            };
+            *dst = (drive(0) << 4) | drive(1);
         }
         clear_padding::<PANEL>(out);
     }

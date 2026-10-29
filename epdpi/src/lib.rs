@@ -52,4 +52,4 @@ pub use crate::panels::{
     ED047TC1_LUT, Ed047tc1, M5_ERASER_LUT, M5_FAST_LUT, M5_FASTEST_LUT, M5_QUALITY_LUT, M5_TEXT_LUT,
 };
 pub use crate::traits::{ColorMode, DriveCode, EpdPanel, EpdParallelBus};
-pub use crate::waveform::{RefreshMode, WaveformEngine};
+pub use crate::waveform::{M5Pass, RefreshMode, WaveformEngine};

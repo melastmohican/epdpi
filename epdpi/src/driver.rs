@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use crate::error::ValidationError;
 use crate::graphics::{EpdFrameBuffer, Rect};
 use crate::traits::{DriveCode, EpdPanel, EpdParallelBus};
-use crate::waveform::{CLEAR_PASSES, RefreshMode, WaveformEngine};
+use crate::waveform::{CLEAR_PASSES, M5Pass, RefreshMode, WaveformEngine};
 
 /// Builds an [`EpdDisplay`].
 #[derive(Debug)]
@@ -242,6 +242,12 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
         let columns = window.x..window.x + window.w;
         let whole_width = window.x == 0 && window.w == PANEL::WIDTH;
         for pass in 0..WaveformEngine::passes::<PANEL>(mode) {
+            // The tables of this pass, built once for all rows.
+            let m5 = matches!(
+                mode,
+                RefreshMode::M5Text | RefreshMode::M5Fast | RefreshMode::M5Fastest
+            )
+            .then(|| M5Pass::new::<PANEL>(mode, pass));
             self.bus.start_frame().await?;
             for row in 0..PANEL::HEIGHT as usize {
                 if !rows.contains(&row) {
@@ -278,13 +284,9 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
                         self.scanline,
                     ),
                     RefreshMode::M5Text | RefreshMode::M5Fast | RefreshMode::M5Fastest => {
-                        WaveformEngine::m5_scanline::<PANEL>(
-                            mode,
-                            &self.prev_buffer[range],
-                            next,
-                            pass,
-                            self.scanline,
-                        );
+                        if let Some(m5) = &m5 {
+                            m5.scanline::<PANEL>(&self.prev_buffer[range], next, self.scanline);
+                        }
                     }
                     _ => WaveformEngine::gray_scanline::<PANEL>(next, pass, self.scanline),
                 }

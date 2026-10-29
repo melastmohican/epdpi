@@ -331,3 +331,149 @@ fn mask_scanline_keeps_only_the_pixels_inside_the_columns() {
     WaveformEngine::mask_scanline::<P>(&mut out, 0, 960);
     assert!(out.iter().all(|&b| b == 0xFF));
 }
+
+/// The first implementation of `m5_scanline`, kept as the reference the table driven one must
+/// match byte for byte.
+fn reference_m5_scanline(
+    mode: RefreshMode,
+    prev_row: &[u8],
+    next_row: &[u8],
+    pass: usize,
+    out: &mut [u8],
+) {
+    let pack = |c: [u8; 4]| (c[0] << 6) | (c[1] << 4) | (c[2] << 2) | c[3];
+    let (erase, lut, passes) = match mode {
+        RefreshMode::M5Text => (true, P::TEXT_LUT, P::TEXT_PASSES),
+        RefreshMode::M5Fast => (false, P::FAST_LUT, P::FAST_PASSES),
+        RefreshMode::M5Fastest => (false, P::FASTEST_LUT, P::FASTEST_PASSES),
+        _ => {
+            WaveformEngine::uniform_scanline::<P>(DriveCode::Hold, out);
+            return;
+        }
+    };
+    // Most rows of a typical screen do not change. Text mode skips pairs that are white
+    // before and after, the black and white modes pairs that are equal, so a row that is
+    // all white (text) or identical (fast) holds everywhere and needs no per-pair work.
+    let idle = if mode == RefreshMode::M5Text {
+        prev_row.iter().all(|&b| b == 0xff) && next_row.iter().all(|&b| b == 0xff)
+    } else {
+        prev_row == next_row
+    };
+    if idle {
+        WaveformEngine::uniform_scanline::<P>(DriveCode::Hold, out);
+        return;
+    }
+    let binary = matches!(mode, RefreshMode::M5Fast | RefreshMode::M5Fastest);
+    // Black and white modes see only the two end levels.
+    let level = |nibble: u8| {
+        if !binary {
+            nibble
+        } else if nibble >= 8 {
+            0x0f
+        } else {
+            0
+        }
+    };
+    let both = |byte: u8| (level(byte >> 4) << 4) | level(byte & 0x0f);
+    let drawing = !erase || pass >= P::ERASER_PASSES;
+    let code = |nibble: u8| {
+        if drawing {
+            let step = if erase { pass - P::ERASER_PASSES } else { pass };
+            lut.get(usize::from(level(nibble)) * passes + step)
+        } else {
+            P::ERASER_LUT.get(usize::from(nibble) * P::ERASER_PASSES + pass)
+        }
+        .copied()
+        .unwrap_or(0)
+    };
+    let active = |old: u8, new: u8| {
+        if mode == RefreshMode::M5Text {
+            !(old == 0xff && new == 0xff)
+        } else {
+            both(old) != both(new)
+        }
+    };
+    let source = if drawing { next_row } else { prev_row };
+    let pair = |index: usize| {
+        let (old, new, src) = (prev_row[index], next_row[index], source[index]);
+        if active(old, new) {
+            [code(src >> 4), code(src & 0x0f)]
+        } else {
+            [0, 0]
+        }
+    };
+    for (i, dst) in out.iter_mut().take(P::SCANLINE_PIXEL_BYTES).enumerate() {
+        let [a, b] = pair(2 * i);
+        let [c, d] = pair(2 * i + 1);
+        *dst = pack([a, b, c, d]);
+    }
+    let end = P::SCANLINE_BYTES.min(out.len());
+    let start = P::SCANLINE_PIXEL_BYTES.min(end);
+    out[start..end].fill(0);
+}
+
+/// Rows covering every case: white, black, equal, changed pairs, random bytes.
+fn test_rows() -> Vec<(Vec<u8>, Vec<u8>)> {
+    let n = P::FB_STRIDE_BYTES;
+    let mut seed = 0x2545_f491u32;
+    let mut random = |len: usize, ones: bool| -> Vec<u8> {
+        (0..len)
+            .map(|_| {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                // Mostly white or black pairs, so the rows look like text.
+                match (seed >> 8) % 6 {
+                    0 if ones => 0xff,
+                    1 => 0x00,
+                    2 => 0xff,
+                    _ => (seed >> 16) as u8,
+                }
+            })
+            .collect()
+    };
+    let white = vec![0xffu8; n];
+    let black = vec![0x00u8; n];
+    let (a, b) = (random(n, true), random(n, true));
+    let mut one_pair = white.clone();
+    one_pair[7] = 0x12;
+    vec![
+        (white.clone(), white.clone()),
+        (black.clone(), black.clone()),
+        (white.clone(), black.clone()),
+        (black, white.clone()),
+        (a.clone(), a.clone()),
+        (a.clone(), b.clone()),
+        (b.clone(), a),
+        (white.clone(), one_pair.clone()),
+        (one_pair, white),
+    ]
+}
+
+#[test]
+fn table_driven_m5_scanline_matches_the_first_implementation() {
+    let mut fast = vec![0u8; P::SCANLINE_BYTES];
+    let mut reference = vec![0xAAu8; P::SCANLINE_BYTES];
+    for mode in [
+        RefreshMode::M5Text,
+        RefreshMode::M5Fast,
+        RefreshMode::M5Fastest,
+        RefreshMode::M5Quality,
+        RefreshMode::FastMono,
+    ] {
+        for pass in 0..WaveformEngine::passes::<P>(mode).max(1) {
+            let tables = M5Pass::new::<P>(mode, pass);
+            for (i, (prev, next)) in test_rows().iter().enumerate() {
+                fast.fill(0x55);
+                reference.fill(0xAA);
+                tables.scanline::<P>(prev, next, &mut fast);
+                reference_m5_scanline(mode, prev, next, pass, &mut reference);
+                assert_eq!(fast, reference, "{mode:?} pass {pass} row {i}");
+                // The wrapper builds the same tables.
+                fast.fill(0x55);
+                WaveformEngine::m5_scanline::<P>(mode, prev, next, pass, &mut fast);
+                assert_eq!(fast, reference, "{mode:?} pass {pass} row {i} wrapper");
+            }
+        }
+    }
+}
