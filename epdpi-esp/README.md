@@ -32,5 +32,5 @@ when rows are cheap to build.
 
 ## Status
 
-Tested on an M5Stack PaperDIY, in both modes. See the `rust-m5paperdiy-examples` repository (blocking, the bus diagnostics are on its `bringup`
-branch) and `rust-m5paperdiy-embassy-examples` (async) for tests of both buses.
+Tested on an M5Stack PaperDIY, in both modes. See the `rust-m5paperdiy-examples` repository (`blocking/` and `async/`, the bus diagnostics are on its
+`bringup` branch) for tests of both buses.
