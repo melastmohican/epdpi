@@ -43,8 +43,9 @@ impl RefreshMode {
     }
 }
 
-/// Darken and lighten pulses in the clear cycle.
-pub(crate) const CLEAR_PASSES: usize = 8;
+/// Darken and lighten pulses in the clear cycle. 8 left faint ghosts of the smileys on a PaperDIY after
+/// 250 [`RefreshMode::FastMono`] frames and a second clear removed them; 16 in one cycle left a clean panel.
+pub(crate) const CLEAR_PASSES: usize = 16;
 /// Passes in a [`RefreshMode::FastMono`] update.
 pub(crate) const MONO_PASSES: usize = 4;
 /// Gray level at and above which [`RefreshMode::FastMono`] treats a pixel as white.

@@ -8,6 +8,8 @@ use support::*;
 
 type P = Ed047tc1;
 const ROWS: usize = P::HEIGHT as usize;
+/// Darken passes, and lighten passes, in a clear cycle (`CLEAR_PASSES` in the driver).
+const CLEAR_PASSES: usize = 16;
 
 fn frames(bus: &RecordingBus) -> usize {
     bus.count(|e| *e == BusEvent::StartFrame)
@@ -63,16 +65,23 @@ async fn clear_flashes_black_then_white_then_discharges_body() {
 
     assert_eq!(bus.events.first(), Some(&BusEvent::Power(true)));
     assert_eq!(bus.events.last(), Some(&BusEvent::Power(false)));
-    assert_eq!(frames(&bus), 8 + 8 + 1);
+    assert_eq!(frames(&bus), 2 * CLEAR_PASSES + 1);
     assert_eq!(
         bus.count(|e| matches!(e, BusEvent::Line(248, _))),
-        17 * ROWS
+        (2 * CLEAR_PASSES + 1) * ROWS
     );
-    assert_eq!(bus.count(|e| *e == BusEvent::NextRow), 17 * ROWS);
+    assert_eq!(
+        bus.count(|e| *e == BusEvent::NextRow),
+        (2 * CLEAR_PASSES + 1) * ROWS
+    );
     // Darken pass, lighten pass, then a neutral discharge pass.
     assert!(bus.lines[0][..240].iter().all(|&b| b == 0x55));
-    assert!(bus.lines[8 * ROWS][..240].iter().all(|&b| b == 0xAA));
-    assert!(bus.lines[16 * ROWS].iter().all(|&b| b == 0));
+    assert!(
+        bus.lines[CLEAR_PASSES * ROWS][..240]
+            .iter()
+            .all(|&b| b == 0xAA)
+    );
+    assert!(bus.lines[2 * CLEAR_PASSES * ROWS].iter().all(|&b| b == 0));
     // Every scanline carries the 8 padding bytes as zeros.
     assert!(bus.lines.iter().all(|l| l[240..].iter().all(|&b| b == 0)));
     // The record of the glass is now white.
@@ -101,17 +110,18 @@ async fn quality16_clears_then_runs_every_lut_pass_body() {
     d.refresh(&fb, RefreshMode::Quality16).await.unwrap();
     let bus = d.release();
 
-    // 16 clear frames, 8 LUT passes, 1 discharge.
-    assert_eq!(frames(&bus), 16 + 8 + 1);
-    assert_eq!(bus.lines.len(), 25 * ROWS);
+    // The clear frames, 8 LUT passes, 1 discharge.
+    let clear = 2 * CLEAR_PASSES;
+    assert_eq!(frames(&bus), clear + 8 + 1);
+    assert_eq!(bus.lines.len(), (clear + 9) * ROWS);
     // LUT passes start after the clear frames; black pixels darken on every pass.
     for pass in 0..8 {
-        let first = &bus.lines[(16 + pass) * ROWS];
+        let first = &bus.lines[(clear + pass) * ROWS];
         assert!(first[..240].iter().all(|&b| b == 0x55), "pass {pass}");
-        let last = &bus.lines[(16 + pass) * ROWS + ROWS - 1];
+        let last = &bus.lines[(clear + pass) * ROWS + ROWS - 1];
         assert!(last[..240].iter().all(|&b| b == 0x55), "pass {pass}");
     }
-    assert!(bus.lines[24 * ROWS].iter().all(|&b| b == 0));
+    assert!(bus.lines[(clear + 8) * ROWS].iter().all(|&b| b == 0));
     drop(bus);
     assert!(
         prev.iter().all(|&b| b == 0x00),

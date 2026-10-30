@@ -48,7 +48,7 @@ On the ESP32-S3 put the two big ones in PSRAM.
 
 | Mode | What it does | Notes |
 | :--- | :--- | :--- |
-| `Clear` | 8 darken passes, 8 lighten passes, discharge | flashes |
+| `Clear` | 16 darken passes, 16 lighten passes, discharge | flashes |
 | `Quality16` | clear, then the 8-pass 16-gray waveform | flashes, several seconds |
 | `FastMono` | 4 passes, drives only pixels that changed, threshold at gray 8 | no full-screen flash, 379 ms |
 | `M5Quality` | M5GFX `epd_quality`: a short erase toward mid gray, then the 16-gray waveform for the target | no clear, needs the previous picture |

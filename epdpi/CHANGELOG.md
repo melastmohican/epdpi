@@ -8,6 +8,9 @@
   wrapper buses.
 - Edition 2024 and MSRV 1.85 (was edition 2021 and 1.75, copied from `epdsi` without
   revisiting). No source changes were needed beyond `rustfmt`'s 2024 import ordering.
+- `RefreshMode::Clear`, and the clear that starts `Quality16`, run 16 darken and 16 lighten passes, up
+  from 8 and 8. On a PaperDIY, 250 `FastMono` frames left faint ghosts after an 8 pass clear and a
+  clean panel after a 16 pass one. A clear takes about 400 ms instead of 215.
 
 ### Added
 - Initial driver: `EpdPanel`, `EpdParallelBus`, `GenericGpioBus`, `WaveformEngine`,
