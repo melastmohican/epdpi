@@ -9,7 +9,7 @@ default-members = ["epdpi"]
 version = "0.1.0"
 edition = "2024"
 authors = ["Mariusz Jurgielewicz <mordor@mail.com>"]
-license = "MIT OR Apache-2.0"
+license = "GPL-3.0-only"
 repository = "https://github.com/melastmohican/epdpi"
 homepage = "https://github.com/melastmohican/epdpi"
 

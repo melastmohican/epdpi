@@ -111,4 +111,4 @@ Edge sequences, delays and the waveform matrix follow
 
 ## License
 
-MIT OR Apache-2.0
+GPL-3.0-only. See [`LICENSE`](LICENSE).
