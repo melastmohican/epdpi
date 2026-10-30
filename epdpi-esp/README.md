@@ -7,7 +7,7 @@ bit-banging cannot reach.
 | Bus | Row data phase | Needs |
 | :--- | :--- | :--- |
 | `fast_bus::Esp32s3Bus` | about 62 us | no feature, writes the S3 GPIO registers |
-| `lcd_bus::LcdBus` | about 22 us | `esp32s3` feature, `esp-hal` 1.1, blocking API |
+| `lcd_bus::LcdBus` | about 22 us | `esp32s3` feature, `esp-hal` 1.1 |
 
 ## Chips
 
@@ -24,9 +24,13 @@ epdpi-esp = { git = "https://github.com/melastmohican/epdpi", features = ["esp32
 
 ## Async
 
-`LcdBus` is blocking only for now. `fast_bus` works in both modes. For the async API turn off
-default features on both crates.
+Both buses work in blocking and in async mode. For the async API turn off default features on
+both crates. In async mode `LcdBus` awaits the DMA transfer of each row and takes a `DelayNs` for
+its short waits, so the CPU is free between rows. On a PaperDIY an async refresh took about 5 to
+40 percent longer than a blocking one, depending on the mode: the per-row await is a bigger share
+when rows are cheap to build.
 
 ## Status
 
-See the `rust-m5paperdiy-examples` repository for bench tests of both buses.
+Tested on an M5Stack PaperDIY, in both modes. See the `rust-m5paperdiy-examples` repository for
+bench tests of both buses.
