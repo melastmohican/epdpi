@@ -16,7 +16,8 @@ epdpi-esp = { git = "https://github.com/melastmohican/epdpi", features = ["esp32
 
 Not on crates.io yet, so depend on the repository for now.
 
-Tested on an M5Stack PaperDIY (ED047TC1). See the crate READMEs for status. Bench tests live in
-`rust-m5paperdiy-examples`.
+Tested on an M5Stack PaperDIY (ED047TC1). See the crate READMEs for status. Bench tests and ports of
+the Arduino sketches live in [`rust-m5paperdiy-examples`](https://github.com/melastmohican/rust-m5paperdiy-examples),
+with async twins in [`rust-m5paperdiy-embassy-examples`](https://github.com/melastmohican/rust-m5paperdiy-embassy-examples).
 
 Licensed under either of Apache License 2.0 or MIT at your option.
