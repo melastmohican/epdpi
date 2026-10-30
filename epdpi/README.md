@@ -19,8 +19,8 @@ tests in both API modes. On a M5Stack PaperDIY every refresh mode runs on hardwa
 an even 16-step ramp like M5GFX's `epd_quality`, with levels 7 to 9 about 0.1 of the gray range
 darker than M5GFX. `Quality16` runs, but its top gray levels look alike. Over GPIO the rows take
 too long for the 16-gray waveforms (about 250 us against the 16 us they assume), so the ramp
-squashes into a few tones. `rust-m5paperdiy-examples` holds the bench tests and the ports of the
-Arduino sketches, and `rust-m5paperdiy-embassy-examples` their async twins.
+squashes into a few tones. `rust-m5paperdiy-examples` holds the ports of the Arduino sketches, with the bring-up diagnostics
+on its `bringup` branch, and `rust-m5paperdiy-embassy-examples` holds their async twins.
 
 ## Usage
 
