@@ -95,6 +95,29 @@ jobs:
         # so native async fn in traits is only exercised with `blocking` off.
         run: cargo check --no-default-features --features graphics --all-targets
 
+  msrv-esp:
+    name: Minimum Supported Rust Version (epdpi-esp)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          # Must match `rust-version` in epdpi-esp/Cargo.toml (esp-hal 1.1 needs 1.88).
+          toolchain: "1.88"
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
+      - name: Drop lockfile
+        # Resolving fresh mirrors what a consumer on the MSRV would get, as for `epdpi` above.
+        run: rm -f Cargo.lock
+      - name: Check epdpi-esp (blocking)
+        run: cargo check -p epdpi-esp
+      - name: Check epdpi-esp (async)
+        run: cargo check -p epdpi-esp --no-default-features
+      - name: Check epdpi-esp (defmt)
+        run: cargo check -p epdpi-esp --features defmt
+
   build-targets:
     name: Build for RP2040
     # Cortex-M0+ has no atomics and a 32-bit usize, so it is the strictest no_std canary.
