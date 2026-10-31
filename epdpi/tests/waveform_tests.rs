@@ -2,6 +2,7 @@
 //! Pure waveform engine tests, identical in blocking and async builds.
 
 use epdpi::prelude::*;
+use epdpi::waveform::{M5Pass, WaveformEngine};
 
 type P = Ed047tc1;
 

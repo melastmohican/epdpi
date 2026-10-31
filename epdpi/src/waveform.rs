@@ -3,8 +3,42 @@
 use crate::traits::{DriveCode, EpdPanel};
 
 /// How a refresh drives the panel.
+///
+/// More modes can be added in a minor version, so a `match` outside this crate needs a wildcard arm:
+///
+/// ```
+/// use epdpi::RefreshMode;
+///
+/// fn label(mode: RefreshMode) -> &'static str {
+///     match mode {
+///         RefreshMode::Clear => "clear",
+///         RefreshMode::FastMono => "fast black and white",
+///         _ => "something else",
+///     }
+/// }
+/// assert_eq!(label(RefreshMode::Clear), "clear");
+/// ```
+///
+/// Without the wildcard arm it does not compile:
+///
+/// ```compile_fail,E0004
+/// use epdpi::RefreshMode;
+///
+/// fn label(mode: RefreshMode) -> &'static str {
+///     match mode {
+///         RefreshMode::FastMono
+///         | RefreshMode::Quality16
+///         | RefreshMode::M5Quality
+///         | RefreshMode::M5Text
+///         | RefreshMode::M5Fast
+///         | RefreshMode::M5Fastest
+///         | RefreshMode::Clear => "every mode named",
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum RefreshMode {
     /// Differential black and white update. Only pixels that changed since the last refresh
     /// are driven, so there is no full-screen flash. Pixels at gray level 8 or above count
@@ -52,6 +86,10 @@ pub(crate) const MONO_PASSES: usize = 4;
 const MONO_THRESHOLD: u8 = 8;
 
 /// Universal waveform engine. Every panel-specific number lives on [`EpdPanel`].
+///
+/// Internal: it is public so the tests and the buses of the workspace can reach it, but it is
+/// hidden from the documentation and not part of the semver promise of this crate.
+#[doc(hidden)]
 #[derive(Debug, Clone, Copy)]
 pub struct WaveformEngine;
 
@@ -197,6 +235,7 @@ impl WaveformEngine {
 ///
 /// Everything that depends on the pass alone is looked up once here, so building a row is one
 /// table read per pair of pixels. See [`WaveformEngine::m5_scanline`] for what a pass drives.
+#[doc(hidden)]
 pub struct M5Pass {
     mode: RefreshMode,
     /// False for any other mode: every row is holds.

@@ -1,8 +1,23 @@
 //! Panel and bus traits.
 
 /// Color capability of a panel.
+///
+/// More modes (1 and 2 bits per pixel are planned) can be added in a minor version, so a `match`
+/// outside this crate needs a wildcard arm.
+///
+/// ```compile_fail,E0004
+/// use epdpi::ColorMode;
+///
+/// fn bits(mode: ColorMode) -> u8 {
+///     match mode {
+///         ColorMode::BlackWhite => 1,
+///         ColorMode::Grayscale16 => 4,
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum ColorMode {
     /// Black and white only.
     BlackWhite,
@@ -104,6 +119,10 @@ pub trait EpdPanel {
 ///
 /// A frame pass is `start_frame`, then for every row `write_scanline` followed by `next_row`,
 /// then `end_frame`.
+///
+/// Semver rule for this trait: a method added in a later version has a default body, so a bus
+/// written outside this workspace keeps compiling. The five methods below are the whole required
+/// set.
 #[allow(async_fn_in_trait)]
 #[maybe_async_cfg::maybe(
     sync(feature = "blocking", keep_self),

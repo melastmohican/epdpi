@@ -13,8 +13,9 @@
 //! - [`EpdParallelBus`]: the transport, five operations that pulse the gate and source
 //!   control lines and stream one scanline. [`GenericGpioBus`] implements it on any
 //!   `embedded-hal` pins.
-//! - [`WaveformEngine`]: stateless conversion of framebuffer rows to 2 bits per pixel
-//!   drive codes. All panel numbers come from [`EpdPanel`].
+//! - The waveform engine, an internal part with no stable API: stateless conversion of
+//!   framebuffer rows to 2 bits per pixel drive codes. All panel numbers come from
+//!   [`EpdPanel`]. [`RefreshMode`] picks the waveform.
 //! - [`EpdFrameBuffer`]: 4 bits per pixel buffer in caller memory, an `embedded-graphics`
 //!   `DrawTarget` over `Gray4` with the `graphics` feature.
 //! - [`EpdDisplay`]: power sequencing and refresh, built with [`EpdDisplayBuilder`].
@@ -52,4 +53,4 @@ pub use crate::panels::{
     ED047TC1_LUT, Ed047tc1, M5_ERASER_LUT, M5_FAST_LUT, M5_FASTEST_LUT, M5_QUALITY_LUT, M5_TEXT_LUT,
 };
 pub use crate::traits::{ColorMode, DriveCode, EpdPanel, EpdParallelBus};
-pub use crate::waveform::{M5Pass, RefreshMode, WaveformEngine};
+pub use crate::waveform::RefreshMode;

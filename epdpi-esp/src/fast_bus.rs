@@ -22,6 +22,7 @@ use embedded_hal::digital::OutputPin;
 /// Why a pin map was rejected by [`FastGpioBus::with_port`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum PinMapError {
     /// A data pin or CL is GPIO32 or higher, outside the first GPIO output register.
     PinOutOfRange,

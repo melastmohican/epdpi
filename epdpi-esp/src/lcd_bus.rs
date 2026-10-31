@@ -16,6 +16,7 @@ use epdpi::EpdParallelBus;
 
 /// Why a bus call failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LcdBusError {
     /// The DMA transfer failed.
     Dma(DmaError),

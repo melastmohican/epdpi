@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Changed
+- `RefreshMode` and `ColorMode` are `#[non_exhaustive]`: modes can be added in a minor version, so a
+  `match` outside the crate needs a wildcard arm (doctests show it).
+- `WaveformEngine` and `M5Pass` are `#[doc(hidden)]` and no longer in the prelude or the crate root. They
+  stay public under `epdpi::waveform` for the tests and for buses in this workspace, and are not
+  covered by semver.
+- The `EpdParallelBus` docs state that a method added later gets a default body.
 - Now a workspace member. The register-level `fast_bus` moved to the new `epdpi-esp` crate and
   the `esp32s3` feature is gone from this crate. `GenericGpioBus::control_mut` is new, for
   wrapper buses.

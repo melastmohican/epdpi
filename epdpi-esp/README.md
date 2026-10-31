@@ -22,6 +22,10 @@ epdpi-esp = { git = "https://github.com/melastmohican/epdpi", features = ["esp32
 `epdpi-esp` depends on `esp-hal` 1.1 (with its `unstable` feature). Cargo allows one copy of
 `esp-hal`, so your project must use a compatible version.
 
+`esp-hal` types are part of the public API (`Output`, `I8080`, the DMA types), so a new major
+version of `esp-hal` needs a new version of `epdpi-esp` that is not compatible with this one. The
+dependency is written `~1.1.0` for that reason: `epdpi-esp` 0.1 works with `esp-hal` 1.1.x only.
+
 ## Async
 
 Both buses work in blocking and in async mode. For the async API turn off default features on

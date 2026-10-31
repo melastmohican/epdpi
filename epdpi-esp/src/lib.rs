@@ -18,6 +18,12 @@
 //! as in `esp-hal`, so other chips can be added later. A classic ESP32 or an S2 would need an
 //! I2S parallel bus, which is not written.
 //!
+//! # `esp-hal` version
+//!
+//! `esp-hal` types appear in the public API (`Output`, `I8080`, the DMA types), so this crate
+//! follows `esp-hal` closely. `epdpi-esp` 0.1 works with `esp-hal` 1.1.x (`~1.1.0`, with its
+//! `unstable` feature). A new major or minor version of `esp-hal` needs a new `epdpi-esp`.
+//!
 //! # Cargo features
 //!
 //! - `blocking` (default): blocking API, forwarded to `epdpi`.
