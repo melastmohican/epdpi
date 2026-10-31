@@ -1,0 +1,193 @@
+name: Release
+
+# A release is a pushed tag `vX.Y.Z`, and the tag is the only thing that can publish. A manual run
+# (workflow_dispatch) is always a dry run: it does everything up to the publish and the GitHub
+# Release, and publishes nothing.
+#
+# Two crates share one version and one tag. `epdpi-esp` depends on `epdpi` by version, so `epdpi` goes
+# first and the job waits until the crates.io index lists it. A version that is already in the
+# index is skipped, which makes a re-run safe, and also covers the first release, where both
+# crates are published by hand (Trusted Publishing needs the crate to exist) and the tag only
+# makes the GitHub Release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify (full CI matrix)
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Publish to crates.io and GitHub
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for crates.io Trusted Publishing (OIDC token exchange).
+      id-token: write
+      # Required to create the GitHub Release.
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
+
+      - name: Resolve the tag
+        id: tag
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            tag="$GITHUB_REF_NAME"
+            dry_run=false
+          else
+            # A manual run has no tag: pretend the tag of the version in Cargo.toml.
+            version="$(cargo metadata --no-deps --format-version 1 \
+              | jq -r '.packages[] | select(.name == "epdpi") | .version')"
+            tag="v$version"
+            dry_run=true
+            echo "::notice::Manual run: a dry run, nothing is published or released."
+          fi
+          {
+            echo "tag=$tag"
+            echo "version=${tag#v}"
+            echo "dry_run=$dry_run"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify the tag matches both crate versions
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          tag_version="${TAG#v}"
+          for crate in epdpi epdpi-esp; do
+            crate_version="$(cargo metadata --no-deps --format-version 1 \
+              | jq -r --arg c "$crate" '.packages[] | select(.name == $c) | .version')"
+            echo "tag=$tag_version $crate=$crate_version"
+            if [ "$tag_version" != "$crate_version" ]; then
+              echo "::error::Tag $TAG does not match the $crate version $crate_version"
+              exit 1
+            fi
+          done
+
+      - name: Extract the changelog sections
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          DRY_RUN: ${{ steps.tag.outputs.dry_run }}
+          # Outside the checkout: `cargo publish` refuses a working tree with untracked files.
+          NOTES: ${{ runner.temp }}/release-notes.md
+        run: |
+          : > "$NOTES"
+          for crate in epdpi epdpi-esp; do
+            body="$(.github/scripts/changelog-section.sh "$crate/CHANGELOG.md" "$VERSION")"
+            if [ -z "${body//[[:space:]]/}" ]; then
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "::notice::$crate/CHANGELOG.md has no [$VERSION] section yet; using [Unreleased] for the dry run."
+                body="$(.github/scripts/changelog-section.sh "$crate/CHANGELOG.md" Unreleased)"
+              else
+                echo "::error::$crate/CHANGELOG.md has no [$VERSION] section"
+                exit 1
+              fi
+            fi
+            printf '## %s\n%s\n\n' "$crate" "$body" >> "$NOTES"
+          done
+          cat "$NOTES"
+
+      - name: Check what is already on crates.io
+        id: published
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          publish=false
+          for crate in epdpi epdpi-esp; do
+            status=0
+            .github/scripts/crate-in-index.sh "$crate" "$VERSION" || status=$?
+            case "$status" in
+              0) echo "$crate $VERSION is on crates.io" ;;
+              10) echo "$crate $VERSION is not on crates.io"; publish=true ;;
+              *) echo "::error::Could not read the crates.io index for $crate (exit $status)"; exit 1 ;;
+            esac
+          done
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+
+      # Only when there is something to publish: the first release publishes both crates by hand
+      # and needs no login, so it does not depend on the trusted publisher being set up.
+      - name: Authenticate to crates.io
+        if: steps.tag.outputs.dry_run == 'false' && steps.published.outputs.publish == 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
+      - name: Publish the crates, epdpi first
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          DRY_RUN: ${{ steps.tag.outputs.dry_run }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          # Exit codes of crate-in-index.sh: 0 listed, 10 not listed, anything else is an error.
+          in_index() {
+            local status=0
+            .github/scripts/crate-in-index.sh "$1" "$VERSION" || status=$?
+            [ "$status" -eq 0 ] && return 0
+            [ "$status" -eq 10 ] && return 1
+            echo "::error::Could not read the crates.io index for $1 (exit $status)"
+            exit 1
+          }
+
+          wait_for_index() {
+            for _ in $(seq 1 36); do
+              if in_index "$1"; then
+                return 0
+              fi
+              sleep 10
+            done
+            echo "::error::$1 $VERSION did not show up in the crates.io index within 6 minutes"
+            exit 1
+          }
+
+          for crate in epdpi epdpi-esp; do
+            if in_index "$crate"; then
+              echo "::notice::$crate $VERSION is already on crates.io; skipping."
+              continue
+            fi
+
+            if [ "$crate" = "epdpi-esp" ] && ! in_index epdpi; then
+              # Only a dry run can get here: a real run published epdpi in the previous round.
+              # `epdpi-esp` depends on `epdpi` by version, so cargo cannot package it before then.
+              echo "::notice::Skipping the epdpi-esp dry run: epdpi $VERSION is not on crates.io yet."
+              continue
+            fi
+
+            echo "--- $crate: package check"
+            cargo publish --dry-run -p "$crate"
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "::notice::Dry run: not publishing $crate $VERSION."
+              continue
+            fi
+
+            echo "--- $crate: publish"
+            cargo publish -p "$crate"
+            wait_for_index "$crate"
+          done
+
+      - name: Create GitHub Release
+        if: steps.tag.outputs.dry_run == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.tag.outputs.tag }}
+          body_path: ${{ runner.temp }}/release-notes.md
+          generate_release_notes: false
