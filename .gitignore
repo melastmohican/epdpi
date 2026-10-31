@@ -12,3 +12,4 @@
 
 # Claude Code auto memory (project-local)
 /.memory
+__pycache__/
