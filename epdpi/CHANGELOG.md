@@ -7,12 +7,12 @@
 First release.
 
 ### Added
-- A `no_std` driver for raw-parallel e-paper panels, where the microcontroller drives the gate and source drivers itself. It uses `embedded-hal` 1.0 and is blocking by default, or async with `default-features = false`.
+- A `no_std` driver for raw-parallel e-paper panels, blocking or async. The microcontroller drives the gate and source drivers itself, through `embedded-hal` 1.0, or `embedded-hal-async` with `default-features = false`.
 - The `Ed047tc1` panel (960 x 540, 16 grays), tested on an M5Stack PaperDIY.
-- Seven refresh modes in `RefreshMode`: `Clear`, `Quality16` and `FastMono`, and four that follow M5GFX, `M5Quality`, `M5Text`, `M5Fast` and `M5Fastest`, with waveform tables generated from M5GFX `Panel_EPD`. The M5GFX modes need a row data phase near 16 us, which the buses of `epdpi-esp` reach.
-- `EpdFrameBuffer`, a 4 bits per pixel buffer in your memory. With the `graphics` feature it is an `embedded-graphics` draw target over `Gray4`, and it turns in 90 degree steps with `Rotation`.
-- Window updates: `Rect`, `EpdFrameBuffer::mark_dirty`, `EpdDisplay::refresh_rect` and `refresh_dirty` refresh only the part of the panel that changed.
-- `GenericGpioBus`, a portable bus on any `embedded-hal` output pins. Its rows take about 250 us, so the 16 gray waveforms squash into a few tones: use `epdpi-esp` on an ESP32-S3.
+- Seven refresh modes, four of them following M5GFX. `RefreshMode` has `Clear`, `Quality16` and `FastMono`, and `M5Quality`, `M5Text`, `M5Fast` and `M5Fastest` with waveform tables generated from M5GFX `Panel_EPD`. The M5GFX modes need a row data phase near 16 us, which the buses of `epdpi-esp` reach.
+- A 4 bits per pixel frame buffer in your own memory. `EpdFrameBuffer` is an `embedded-graphics` draw target over `Gray4` with the `graphics` feature, and it turns in 90 degree steps with `Rotation`.
+- Window updates, so only the part of the panel that changed is refreshed. `Rect`, `EpdFrameBuffer::mark_dirty`, `EpdDisplay::refresh_rect` and `refresh_dirty` do it.
+- A portable GPIO bus on any `embedded-hal` output pins. `GenericGpioBus` rows take about 250 us, so the 16 gray waveforms squash into a few tones: use `epdpi-esp` on an ESP32-S3.
 - An optional `defmt` feature.
 
 ### Notes

@@ -18,6 +18,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Where the release is announced. The token is the secret MASTODON_ACCESS_TOKEN, the access token alone.
+  MASTODON_INSTANCE: https://fosstodon.org
 
 concurrency:
   group: release
@@ -107,6 +109,19 @@ jobs:
           done
           cat "$NOTES"
 
+      # Built before anything is published, so a fault in the text stops the run while it costs nothing.
+      # The post is the first sentence of each `### Added` bullet, see .github/scripts/mastodon_post.py.
+      - name: Build the Mastodon post
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          NOTES: ${{ runner.temp }}/release-notes.md
+          POST: ${{ runner.temp }}/mastodon-post.txt
+        run: |
+          python3 .github/scripts/mastodon_post.py \
+            --version "$VERSION" --repo "$GITHUB_REPOSITORY" --notes "$NOTES" > "$POST"
+          echo "--- the post"
+          cat "$POST"
+
       - name: Check what is already on crates.io
         id: published
         env:
@@ -191,3 +206,29 @@ jobs:
           name: ${{ steps.tag.outputs.tag }}
           body_path: ${{ runner.temp }}/release-notes.md
           generate_release_notes: false
+
+      # The crates are published and the release exists by now, so a failed post is a warning on a
+      # green run, not a red release. A re-run of the workflow posts again.
+      - name: Post to Mastodon
+        if: steps.tag.outputs.dry_run == 'false'
+        continue-on-error: true
+        env:
+          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+          POST: ${{ runner.temp }}/mastodon-post.txt
+          RESPONSE: ${{ runner.temp }}/mastodon-response.json
+        run: |
+          if [ -z "$MASTODON_ACCESS_TOKEN" ]; then
+            echo "::warning::The secret MASTODON_ACCESS_TOKEN is not set, so nothing is posted."
+            exit 0
+          fi
+          # curl exits 0 on an HTTP 4xx, so the status code is checked by hand.
+          code="$(curl -sS -o "$RESPONSE" -w '%{http_code}' -X POST \
+            "$MASTODON_INSTANCE/api/v1/statuses" \
+            -H "Authorization: Bearer $MASTODON_ACCESS_TOKEN" \
+            --data-urlencode "status@$POST" \
+            --data-urlencode "visibility=public")"
+          if [ "$code" != "200" ]; then
+            echo "::warning::Mastodon answered HTTP $code: $(cat "$RESPONSE")"
+            exit 1
+          fi
+          echo "Posted: $(jq -r .url "$RESPONSE")"

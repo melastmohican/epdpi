@@ -95,6 +95,17 @@ jobs:
         # so native async fn in traits is only exercised with `blocking` off.
         run: cargo check --no-default-features --features graphics --all-targets
 
+  scripts:
+    name: Release scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Unit tests of the release scripts
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - name: Shellcheck
+        run: shellcheck .github/scripts/*.sh
+
   msrv-esp:
     name: Minimum Supported Rust Version (epdpi-esp)
     runs-on: ubuntu-24.04
