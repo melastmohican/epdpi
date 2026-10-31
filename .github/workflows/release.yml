@@ -31,7 +31,7 @@ jobs:
   release:
     name: Publish to crates.io and GitHub
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       # Required for crates.io Trusted Publishing (OIDC token exchange).
       id-token: write
@@ -39,7 +39,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
@@ -186,7 +186,7 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.tag.outputs.dry_run == 'false'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.tag.outputs.tag }}
           body_path: ${{ runner.temp }}/release-notes.md
