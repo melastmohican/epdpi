@@ -28,8 +28,9 @@
 //! - `defmt`: `defmt::Format` on the public types.
 //!
 //! Faster buses for specific chips live in separate crates, for example `epdpi-esp`, so this
-//! crate never depends on a vendor HAL. The 16-gray waveforms assume a row data phase near
-//! 16 us, which bit-banging through [`GenericGpioBus`] cannot reach.
+//! crate never depends on a vendor HAL. The 16-gray waveforms are built for M5GFX's row data
+//! phase of 15.5 us, which bit-banging through [`GenericGpioBus`] (about 250 us a row) cannot
+//! reach.
 //!
 //! [`embedded-hal`]: https://docs.rs/embedded-hal
 

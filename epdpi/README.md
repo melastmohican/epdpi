@@ -18,8 +18,10 @@ tests in both API modes. On a M5Stack PaperDIY every refresh mode runs on hardwa
 `LCD_CAM` DMA bus of [`epdpi-esp`](../epdpi-esp), in blocking and in async mode. `M5Quality` gives
 an even 16-step ramp like M5GFX's `epd_quality`, with levels 7 to 9 about 0.1 of the gray range
 darker than M5GFX. `Quality16` runs, but its top gray levels look alike. Over GPIO the rows take
-too long for the 16-gray waveforms (about 250 us against the 16 us they assume), so the ramp
-squashes into a few tones. `rust-m5paperdiy-examples` holds the ports of the Arduino sketches (blocking in `blocking/`, async
+too long for the 16-gray waveforms (about 250 us a row against the 15.5 us data phase of M5GFX they
+are built for, computed), so the ramp squashes into a few tones. There is no temperature handling:
+M5GFX, FastEPD and epdiy have none for this panel either. The VCOM value (-2000 mV) is recorded
+and not applied, because the PaperDIY sets VCOM in hardware. `rust-m5paperdiy-examples` holds the ports of the Arduino sketches (blocking in `blocking/`, async
 twins in `async/`), with the bring-up diagnostics on its `bringup` branch.
 
 ## Usage

@@ -256,6 +256,39 @@ epd_test!(
     m5_fast_records_the_black_and_white_picture_body
 );
 
+/// M5GFX assumes the glass is mid gray (`0x88`) after boot and drives every pair on the first
+/// fast update. `epdpi` compares the reduced pictures, and gray 8 counts as white, so a white
+/// picture over a `0x88` record holds. Documented on `RefreshMode::M5Fast`.
+#[maybe_async_cfg::maybe(
+    sync(feature = "blocking", keep_self),
+    async(not(feature = "blocking"), keep_self)
+)]
+async fn m5_fast_holds_white_pairs_over_a_mid_gray_record_body() {
+    let mut prev = vec![0x88u8; P::FB_BYTES];
+    let mut line = vec![0u8; P::SCANLINE_BYTES];
+    let mut fbmem = vec![0xFFu8; P::FB_BYTES];
+    let fb = EpdFrameBuffer::<P>::new(&mut fbmem).unwrap();
+    let mut d = EpdDisplayBuilder::<P>::new()
+        .build(RecordingBus::default(), &mut prev, &mut line)
+        .unwrap();
+    d.refresh(&fb, RefreshMode::M5Fast).await.unwrap();
+    let bus = d.release();
+    assert!(
+        bus.lines.iter().all(|l| l[..240].iter().all(|&b| b == 0)),
+        "no pair is driven: gray 8 and white reduce to the same level"
+    );
+    drop(bus);
+    assert!(
+        prev.iter().all(|&b| b == 0xFF),
+        "the record is reduced to white even though the glass stayed mid gray"
+    );
+}
+
+epd_test!(
+    m5_fast_holds_white_pairs_over_a_mid_gray_record,
+    m5_fast_holds_white_pairs_over_a_mid_gray_record_body
+);
+
 #[maybe_async_cfg::maybe(
     sync(feature = "blocking", keep_self),
     async(not(feature = "blocking"), keep_self)

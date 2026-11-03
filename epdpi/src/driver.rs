@@ -150,6 +150,10 @@ impl<BUS: EpdParallelBus, PANEL: EpdPanel> EpdDisplay<'_, BUS, PANEL> {
     /// drawn since the last update and refreshes all of it. For that, use
     /// [`EpdFrameBuffer::mark_dirty`] and [`refresh_dirty`](Self::refresh_dirty).
     ///
+    /// `rect` is in panel pixels, not in the rotated picture. M5GFX's `display(x, y, w, h)` takes
+    /// the rotated picture and turns it itself; here, convert first with
+    /// [`EpdFrameBuffer::rect_to_panel`].
+    ///
     /// `rect` is clipped to the panel and widened to whole pixel pairs. An empty rectangle
     /// does nothing, not even a power cycle. Every row is still clocked, so a window is not
     /// faster than a full refresh with the same mode; the gain is that nothing outside it

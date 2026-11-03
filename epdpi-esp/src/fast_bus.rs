@@ -1,10 +1,11 @@
 //! Register-level bus for the ESP32-S3.
 //!
 //! [`GenericGpioBus`] sets each data pin with its own call, which takes about 250 us per
-//! row. The ED047TC1 waveform matrix assumes a row time near 16 us (M5GFX), so on that bus
-//! every pass drives too long and the mid grays saturate to two tones. [`FastGpioBus`]
-//! sets all eight data lines and the clock with two stores to the GPIO set and clear
-//! registers per byte, which lands close to the M5GFX row time.
+//! row. The ED047TC1 waveform matrix is built for M5GFX's row data phase of 15.5 us
+//! (computed: 248 bytes at 16 MHz), so on that bus every pass drives too long and the mid
+//! grays saturate to two tones. [`FastGpioBus`] sets all eight data lines and the clock with
+//! two stores to the GPIO set and clear registers per byte, which takes about 62 us per row.
+//! That is closer, but still about four times the M5GFX data phase.
 //!
 //! The crate has no HAL dependency, so the caller passes the pins and their GPIO numbers.
 //! The pins are only held, to keep them configured as outputs. The data pins and CL must

@@ -36,17 +36,22 @@ pub struct ControlPins<P> {
 ///
 /// # Row time
 ///
-/// Every data pin is a separate call, so a row takes about 250 us on an ESP32-S3. The
-/// ED047TC1 waveform matrix assumes about 16 us (M5GFX). At 250 us each pass drives too
-/// long and the mid grays saturate, so the panel shows two tones instead of 16 grays. This
-/// bus is fine for `Clear` and `FastMono`. For `Quality16` use a faster bus, such as
-/// `fast_bus::Esp32s3Bus` behind the `esp32s3` feature.
+/// Every data pin is a separate call, so one row takes about 250 us on an ESP32-S3. The
+/// ED047TC1 waveform matrix is built for M5GFX's row data phase of 15.5 us (computed: 248
+/// bytes at 16 MHz). At 250 us each pass drives too long and the mid grays saturate, so the
+/// panel shows two tones instead of 16 grays. This bus is fine for `Clear` and `FastMono`.
+/// For `Quality16` use a faster bus, such as `fast_bus::Esp32s3Bus` behind the `esp32s3`
+/// feature.
 ///
 /// # Sequence
 ///
 /// The edge sequences and microsecond delays follow M5GFX's `Bus_EPD`, which is the sequence
 /// confirmed on a PaperDIY. An earlier FastEPD-style version (short LE pulse, no wait after
 /// power-on) left noise on the panel. Which of those differences mattered was not isolated.
+///
+/// FastEPD differs in two places, both computed from its code and with no known effect.
+/// Power off: FastEPD sets PWR low first and waits 1 ms afterwards, this bus waits 1 ms
+/// first. Frame start: the waits add up to 71 us in FastEPD and 23 us here.
 #[derive(Debug)]
 pub struct GenericGpioBus<P, D> {
     data: [P; 8],

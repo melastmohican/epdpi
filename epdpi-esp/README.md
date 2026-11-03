@@ -1,13 +1,17 @@
 # epdpi-esp
 
 ESP32 buses for [`epdpi`](../epdpi), the `no_std` driver for raw-parallel e-paper displays.
-They exist because the 16-gray waveforms need a row data phase near 16 us, which GPIO
-bit-banging cannot reach.
+They exist because the 16-gray waveforms are built for M5GFX's row data phase of 15.5 us
+(computed: 248 bytes at 16 MHz), which GPIO bit-banging (about 250 us a row) cannot reach.
 
 | Bus | Row data phase | Needs |
 | :--- | :--- | :--- |
 | `fast_bus::Esp32s3Bus` | about 62 us | no feature, writes the S3 GPIO registers |
-| `lcd_bus::LcdBus` | about 22 us | `esp32s3` feature, `esp-hal` 1.1 |
+| `lcd_bus::LcdBus` | about 22 us measured | `esp32s3` feature, `esp-hal` 1.1 |
+
+The 6.5 us that `LcdBus` takes over the computed 15.5 us is the `send()` setup, which was not
+isolated. A whole `LcdBus` row takes about 117 us (computed, not measured here), against about
+91 us for M5GFX.
 
 ## Chips
 

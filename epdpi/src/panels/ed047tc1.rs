@@ -32,7 +32,8 @@ pub const ED047TC1_LUT: [u8; 128] = [
 ];
 
 /// M5GFX `lut_eraser`, 16 gray levels by 2 passes. Row `g` is indexed by the gray level the
-/// pixel holds now. Codes as for [`ED047TC1_LUT`] (M5GFX 3, no operation, is 0 here).
+/// pixel holds now. Codes as for [`ED047TC1_LUT`]. M5GFX's 3 is kept as 3 in this and the other
+/// `M5_*_LUT` tables and goes on the bus as bits `11`, where it works like 0 (no operation).
 #[rustfmt::skip]
 pub const M5_ERASER_LUT: [u8; 32] = [
     2, 2,
@@ -146,6 +147,8 @@ impl EpdPanel for Ed047tc1 {
     const WIDTH: u32 = 960;
     const HEIGHT: u32 = 540;
     const COLOR_MODE: ColorMode = ColorMode::Grayscale16;
+    /// Recorded only. The PaperDIY sets VCOM in hardware, and neither M5GFX nor FastEPD
+    /// writes it (FastEPD lists -1600 for the PaperS3). The origin of -2000 is not known.
     const VCOM_MV: Option<i16> = Some(-2000);
     const LINE_PADDING: usize = 8;
     const WAVEFORM_LUT: &'static [u8] = &ED047TC1_LUT;

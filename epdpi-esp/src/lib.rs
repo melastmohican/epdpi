@@ -3,14 +3,18 @@
 //! Faster [`EpdParallelBus`](epdpi::EpdParallelBus) implementations for the `epdpi` e-paper
 //! driver, kept out of the core crate so that crate never depends on a vendor HAL.
 //!
-//! The 16-gray waveforms assume a row data phase near 16 us. Bit-banging through
-//! `epdpi::GenericGpioBus` takes about 250 us, and even register writes take about 62 us on an
-//! ESP32-S3, which squashes the gray ramp. These buses get closer:
+//! The 16-gray waveforms are built for M5GFX's row data phase of 15.5 us (computed: 248 bytes
+//! at 16 MHz). Bit-banging through `epdpi::GenericGpioBus` takes about 250 us, and even register
+//! writes take about 62 us on an ESP32-S3, which squashes the gray ramp. These buses get closer:
 //!
 //! | Bus | Row data phase (248 bytes) | Needs |
 //! | :--- | :--- | :--- |
 //! | [`fast_bus::Esp32s3Bus`] | about 62 us | any ESP32-S3 HAL, no feature |
-//! | `lcd_bus::LcdBus` | about 22 us | `esp32s3` feature, `esp-hal`. Blocking and async |
+//! | `lcd_bus::LcdBus` | about 22 us measured | `esp32s3` feature, `esp-hal`. Blocking and async |
+//!
+//! The 6.5 us that `LcdBus` takes over the computed 15.5 us is the `send()` setup, which was
+//! not isolated. A whole `LcdBus` row, data phase and edges, takes about 117 us (computed,
+//! not measured here), against about 91 us for M5GFX.
 //!
 //! # Chips
 //!

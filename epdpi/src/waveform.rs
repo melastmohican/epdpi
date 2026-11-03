@@ -43,17 +43,27 @@ pub enum RefreshMode {
     /// Differential black and white update. Only pixels that changed since the last refresh
     /// are driven, so there is no full-screen flash. Pixels at gray level 8 or above count
     /// as white. Ghosting builds up, so follow a run of these with [`Clear`](Self::Clear).
+    ///
+    /// The threshold of 8 is a hard cut. FastEPD has no threshold in its update (its buffer is
+    /// 1 bit per pixel) and the 8 does not come from it.
     FastMono,
     /// Full 16-level update: clears the panel, then runs every pass of the panel's waveform
     /// matrix. Flashes and takes several seconds.
+    ///
+    /// The clear is 16 darken passes then 16 lighten passes. FastEPD's slow clear has the same
+    /// 32 passes in four darken and lighten pairs of 8, and its `clearWhite` runs 7 + 7 and a
+    /// neutral pass. Unlike FastEPD, this mode goes from the last lighten pass straight into
+    /// pass 0 of the matrix (FastEPD runs a neutral pass between), and it waits no 230 us after
+    /// each pass.
     Quality16,
     /// 16-level update that follows M5GFX `epd_quality`: a short erase that moves each pixel
     /// from the gray it holds now towards mid gray, then the quality waveform for its target
     /// gray. No full clear, so the previous picture must be recorded (see
     /// [`EpdDisplay::clear`](crate::EpdDisplay::clear)).
     ///
-    /// The waveform assumes a row data phase near 16 us. On a PaperDIY it gave an even ramp
-    /// over an `LCD_CAM` DMA bus (22 us) and a squashed one over GPIO bit-banging (62 us).
+    /// The waveform is built for M5GFX's row data phase of 15.5 us (computed: 248 bytes at
+    /// 16 MHz). On a PaperDIY it gave an even ramp over an `LCD_CAM` DMA bus (22 us measured)
+    /// and a squashed one over GPIO register writes (62 us).
     M5Quality,
     /// M5GFX `epd_text`: the erase, then `lut_text` (12 passes), but only for pixel pairs that
     /// are not white before and after. White stays untouched, so a page of text flashes less
@@ -62,10 +72,20 @@ pub enum RefreshMode {
     /// M5GFX `epd_fast`: the picture is reduced to black and white, pairs of pixels that changed
     /// get `lut_fast` (8 passes, no erase), the rest hold. The record then holds the black and
     /// white picture.
+    ///
+    /// The reduction is a hard cut at gray 8 and above. M5GFX uses a Bayer threshold, which shows
+    /// gray `g` as a density of white pixels, so a gray picture looks different here. M5GFX also
+    /// decides from the last requested value and mode, not from the picture on the glass: after
+    /// boot it assumes mid gray (`0x88`) and drives every pair on the first fast update. Here
+    /// gray 8 counts as white, so a white picture over a `0x88` record holds and the glass stays
+    /// mid gray. Run [`EpdDisplay::clear`](crate::EpdDisplay::clear) first.
     M5Fast,
     /// M5GFX `epd_fastest`: like [`M5Fast`](Self::M5Fast) with `lut_fastest` (5 passes).
     M5Fastest,
     /// Flashes the panel black then white and leaves it white.
+    ///
+    /// 16 darken passes then 16 lighten passes, deliberately stronger than FastEPD's
+    /// `clearWhite` (7 + 7 and a neutral pass) after ghosts survived 8 passes on a PaperDIY.
     Clear,
 }
 

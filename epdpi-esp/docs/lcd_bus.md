@@ -2,10 +2,14 @@ ESP32-S3 `LCD_CAM` i8080 bus with DMA, the way M5GFX drives the panel.
 
 The data pins D0..D7, the source clock CL (the i8080 write strobe) and SPH (the chip
 select, low while a scanline is clocked) belong to the LCD peripheral, so the caller
-configures an `I8080` with them. CKV, LE, SPV, OE and PWR stay plain GPIO, with CKV held
-high for exactly the length of the DMA transfer, as M5GFX's `Bus_EPD` does. The row data
-phase is then set by the bus clock: 22 us for a 248 byte row at 16 MHz on a PaperDIY,
-against 62 us for the register-level GPIO bus.
+configures an `I8080` with them. CKV, LE, SPV, OE and PWR stay plain GPIO. CKV rises once
+`send()` has returned and the DMA runs, so it is high for the data phase only. M5GFX's
+`Bus_EPD` raises it before the DMA starts; this was chosen after a sweep and is not the same.
+The row data phase is set by the bus clock: 15.5 us computed for a 248 byte row at 16 MHz
+(the number the M5GFX waveforms are built for), 22 us measured on a PaperDIY, against 62 us
+for the register-level GPIO bus. The 6.5 us over the computed value is the `send()` setup,
+which was not isolated. A whole row takes about 117 us (computed, not measured here), against
+about 91 us for M5GFX.
 
 Works in both modes. With the `blocking` feature (default) the I8080 is `Blocking` and the
 delay is any `embedded_hal::delay::DelayNs`, such as `esp_hal::delay::Delay`. Without it
