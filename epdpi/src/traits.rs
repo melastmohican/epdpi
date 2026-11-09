@@ -29,9 +29,37 @@ pub enum ColorMode {
 /// Drive code sent to the source drivers for one pixel during one pass.
 ///
 /// Two bits per pixel go over the bus, four pixels per byte, first pixel in bits 7:6.
+///
+/// The enum is `#[non_exhaustive]`: the two bits have a fourth value that no panel here uses, so a
+/// `match` outside the crate needs a wildcard arm and a code added later does not break it:
+///
+/// ```
+/// use epdpi::DriveCode;
+///
+/// fn label(code: DriveCode) -> &'static str {
+///     match code {
+///         DriveCode::Hold => "hold",
+///         _ => "drive",
+///     }
+/// }
+/// assert_eq!(label(DriveCode::Hold), "hold");
+/// ```
+///
+/// Without the wildcard arm it does not compile:
+///
+/// ```compile_fail,E0004
+/// use epdpi::DriveCode;
+///
+/// fn label(code: DriveCode) -> &'static str {
+///     match code {
+///         DriveCode::Hold | DriveCode::Darken | DriveCode::Lighten => "every code named",
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum DriveCode {
     /// No voltage across the pixel, it keeps its current shade.
     Hold = 0,

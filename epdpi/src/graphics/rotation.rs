@@ -10,8 +10,37 @@ use crate::traits::EpdPanel;
 /// PaperDIY. Only the `DrawTarget` and the `*_logical` helpers of
 /// [`EpdFrameBuffer`](super::EpdFrameBuffer) turn the picture. The raw pixel access and the
 /// buffer bytes always use panel coordinates.
+///
+/// The enum is `#[non_exhaustive]` (M5GFX also has four mirrored rotations), so a `match` outside
+/// the crate needs a wildcard arm and a rotation added later does not break it:
+///
+/// ```
+/// use epdpi::Rotation;
+///
+/// fn label(rotation: Rotation) -> &'static str {
+///     match rotation {
+///         Rotation::Deg0 => "landscape",
+///         Rotation::Deg180 => "landscape, upside down",
+///         _ => "portrait",
+///     }
+/// }
+/// assert_eq!(label(Rotation::Deg0), "landscape");
+/// ```
+///
+/// Without the wildcard arm it does not compile:
+///
+/// ```compile_fail,E0004
+/// use epdpi::Rotation;
+///
+/// fn label(rotation: Rotation) -> &'static str {
+///     match rotation {
+///         Rotation::Deg0 | Rotation::Deg90 | Rotation::Deg180 | Rotation::Deg270 => "every rotation named",
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum Rotation {
     /// Panel orientation, 960 by 540. The default.
     #[default]

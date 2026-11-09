@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Breaking: `Rotation` and `DriveCode` are `#[non_exhaustive]`, so a `match` outside the crate needs a wildcard arm and a variant added later does not break it (the same as `RefreshMode` and `ColorMode` since 0.1.0).
+
 ## [0.1.0] - 2026-10-31
 
 First release.
