@@ -8,6 +8,7 @@ They exist because the 16-gray waveforms are built for M5GFX's row data phase of
 | :--- | :--- | :--- |
 | `fast_bus::Esp32s3Bus` | about 62 us | no feature, writes the S3 GPIO registers |
 | `lcd_bus::LcdBus` | about 22 us measured | `esp32s3` feature, `esp-hal` 1.1 |
+| `shift_reg_bus::ShiftRegBus` | set by the row time, 22 us by default | `esp32s3` feature, `esp-hal` 1.1 |
 
 The 6.5 us that `LcdBus` takes over the computed 15.5 us is the `send()` setup, which was not
 isolated. A whole `LcdBus` row takes about 117 us (computed, not measured here), against about
@@ -15,15 +16,18 @@ isolated. A whole `LcdBus` row takes about 117 us (computed, not measured here),
 
 ## Wiring
 
-`LcdBus` expects CKV, LE, SPV, OE and PWR on plain GPIO pins, as on the M5Stack PaperDIY. A
-board that routes them through a shift register or a power IC cannot use it and needs its
-own `EpdParallelBus`. The LilyGo T5 4.7 S3 V2.4 is one: a 74HCT4094 carries STV, latch, OE,
-mode and the panel rails, so its bus has a different edge sequence and power-on order.
-`rust-lilygot5-47-s3-examples` has one, `LilygoBus`.
+| Wiring of the control lines | Bus |
+| :--- | :--- |
+| CKV, LE, SPV, OE and PWR on plain GPIO (M5Stack PaperDIY) | `lcd_bus::LcdBus` |
+| STV, latch, OE, mode and the panel rails behind a 74HC595 style shift register (LilyGo T5 4.7 S3 V2.4) | `shift_reg_bus::ShiftRegBus` |
+| Anything else | your own `EpdParallelBus` |
+
+A bus fits one wiring: the edge sequence, the order of the panel rails and the row timing
+differ between boards. `ShiftRegBus` uses `shift_reg::ShiftReg`, which also runs on the host.
 
 ## Chips
 
-Only the ESP32-S3 exists and is tested, on an M5Stack PaperDIY. The chip is a feature, as in
+Only the ESP32-S3 exists and is tested, on an M5Stack PaperDIY and a LilyGo T5 4.7 S3 V2.4. The chip is a feature, as in
 `esp-hal`.
 
 ```toml
@@ -40,13 +44,13 @@ dependency is written `~1.1.0` for that reason: `epdpi-esp` 0.1 works with `esp-
 
 ## Async
 
-Both buses work in blocking and in async mode. For the async API turn off default features on
-both crates. In async mode `LcdBus` awaits the DMA transfer of each row and takes a `DelayNs` for
+The LCD buses work in blocking and in async mode. For the async API turn off default features on
+both crates. In async mode `LcdBus` and `ShiftRegBus` await the DMA transfer of each row and takes a `DelayNs` for
 its short waits, so the CPU is free between rows. On a PaperDIY an async refresh took about 5 to
 40 percent longer than a blocking one, depending on the mode: the per-row await is a bigger share
 when rows are cheap to build.
 
 ## Status
 
-Tested on an M5Stack PaperDIY, in both modes. See the `rust-m5paperdiy-examples` repository (`blocking/` and `async/`, the bus diagnostics are on its
+`LcdBus` and `fast_bus` are tested on an M5Stack PaperDIY, in both modes. `ShiftRegBus` runs on a LilyGo T5 4.7 S3 V2.4, in both modes, with the examples of `rust-lilygot5-47-s3-examples`. See the `rust-m5paperdiy-examples` repository (`blocking/` and `async/`, the bus diagnostics are on its
 `bringup` branch) for tests of both buses.

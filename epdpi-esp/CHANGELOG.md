@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `shift_reg_bus::ShiftRegBus`, a bus for the LilyGo T5 4.7 S3 V2.4, where a 74HC595 style shift register carries STV, latch, OE, mode and the panel rails. Blocking and async, behind the `esp32s3` feature. `shift_reg::ShiftReg` is the register writer, on any `embedded-hal` pins and tested on the host.
+
 ## [0.1.0] - 2026-10-31
 
 First release.
