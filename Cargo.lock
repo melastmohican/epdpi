@@ -465,7 +465,7 @@ dependencies = [
 
 [[package]]
 name = "epdpi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "defmt",
  "embedded-graphics",
@@ -478,7 +478,7 @@ dependencies = [
 
 [[package]]
 name = "epdpi-esp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "defmt",
  "embedded-hal 1.0.0",

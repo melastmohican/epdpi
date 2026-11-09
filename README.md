@@ -10,8 +10,8 @@ or async.
 | [`epdpi-esp`](epdpi-esp) | Faster buses for the ESP32-S3: LCD_CAM with DMA, and register-level GPIO. |
 
 ```toml
-epdpi = "0.1"
-epdpi-esp = { version = "0.1", features = ["esp32s3"] }   # ESP32-S3 only
+epdpi = "0.2"
+epdpi-esp = { version = "0.2", features = ["esp32s3"] }   # ESP32-S3 only
 ```
 
 Tested on an M5Stack PaperDIY (ED047TC1). See the crate READMEs for status. Ports of

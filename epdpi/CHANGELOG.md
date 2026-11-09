@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-09
+
 ### Changed
 - Breaking: `Rotation` and `DriveCode` are `#[non_exhaustive]`, so a `match` outside the crate needs a wildcard arm and a variant added later does not break it (the same as `RefreshMode` and `ColorMode` since 0.1.0).
 
@@ -24,5 +26,6 @@ First release.
 - A method added to `EpdParallelBus` later gets a default body, so a bus written outside this workspace keeps compiling.
 - The minimum supported Rust version is 1.85.
 
-[Unreleased]: https://github.com/melastmohican/epdpi/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/melastmohican/epdpi/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/melastmohican/epdpi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/melastmohican/epdpi/releases/tag/v0.1.0
