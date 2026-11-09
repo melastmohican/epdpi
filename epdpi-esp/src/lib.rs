@@ -16,6 +16,14 @@
 //! not isolated. A whole `LcdBus` row, data phase and edges, takes about 117 us (computed,
 //! not measured here), against about 91 us for M5GFX.
 //!
+//! # Wiring
+//!
+//! `LcdBus` expects CKV, LE, SPV, OE and PWR on plain GPIO pins, as on the M5Stack PaperDIY. A
+//! board that routes them through a shift register or a power IC cannot use it and needs its
+//! own `EpdParallelBus`. The LilyGo T5 4.7 S3 V2.4 is one: a 74HCT4094 carries STV, latch, OE,
+//! mode and the panel rails, so its bus has a different edge sequence and power-on order.
+//! `rust-lilygot5-47-s3-examples` has one, `LilygoBus`.
+//!
 //! # Chips
 //!
 //! Only the ESP32-S3 exists and is tested, on an M5Stack PaperDIY. The chip is a Cargo feature,

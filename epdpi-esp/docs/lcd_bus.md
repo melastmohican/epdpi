@@ -11,6 +11,12 @@ for the register-level GPIO bus. The 6.5 us over the computed value is the `send
 which was not isolated. A whole row takes about 117 us (computed, not measured here), against
 about 91 us for M5GFX.
 
+`LcdBus` expects CKV, LE, SPV, OE and PWR on plain GPIO pins, as on the M5Stack PaperDIY. A
+board that routes them through a shift register or a power IC cannot use it and needs its
+own `EpdParallelBus`. The LilyGo T5 4.7 S3 V2.4 is one: a 74HCT4094 carries STV, latch, OE,
+mode and the panel rails, so its bus has a different edge sequence and power-on order.
+`rust-lilygot5-47-s3-examples` has one, `LilygoBus`.
+
 Works in both modes. With the `blocking` feature (default) the I8080 is `Blocking` and the
 delay is any `embedded_hal::delay::DelayNs`, such as `esp_hal::delay::Delay`. Without it
 the I8080 is `Async`, a row waits for the DMA with `wait_for_done`, and the delay is an
