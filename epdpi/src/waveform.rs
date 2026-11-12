@@ -44,6 +44,11 @@ pub enum RefreshMode {
     /// are driven, so there is no full-screen flash. Pixels at gray level 8 or above count
     /// as white. Ghosting builds up, so follow a run of these with [`Clear`](Self::Clear).
     ///
+    /// For page turns, use this mode on every turn and, every N turns, run
+    /// [`Clear`](Self::Clear) and draw the page again. There is no measured N for page turns
+    /// (the only ghost test was 250 frames of an animation), so pick one by eye. Drawing only
+    /// the changed window with `refresh_rect` keeps a turn short.
+    ///
     /// The threshold of 8 is a hard cut. FastEPD has no threshold in its update (its buffer is
     /// 1 bit per pixel) and the 8 does not come from it.
     FastMono,
