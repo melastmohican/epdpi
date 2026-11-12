@@ -31,8 +31,8 @@ Only the ESP32-S3 exists and is tested, on an M5Stack PaperDIY and a LilyGo T5 4
 `esp-hal`.
 
 ```toml
-epdpi = "0.2"
-epdpi-esp = { version = "0.2", features = ["esp32s3"] }
+epdpi = "0.3"
+epdpi-esp = { version = "0.3", features = ["esp32s3"] }
 ```
 
 `epdpi-esp` depends on `esp-hal` 1.1 (with its `unstable` feature). Cargo allows one copy of

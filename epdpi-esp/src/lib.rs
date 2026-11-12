@@ -47,8 +47,8 @@
 //! - `esp32s3`: enables `esp-hal`, `lcd_bus` and `shift_reg_bus`.
 //!
 //! ```toml
-//! epdpi = "0.2"
-//! epdpi-esp = { version = "0.2", features = ["esp32s3"] }
+//! epdpi = "0.3"
+//! epdpi-esp = { version = "0.3", features = ["esp32s3"] }
 //! ```
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]

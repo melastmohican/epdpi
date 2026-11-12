@@ -2,10 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-11
+
 ### Added
-- `dither`, M5GFX's 4 by 4 Bayer reduction of 8 bit gray: `gray8_to_level` for the 16 level modes and `gray8_to_bw` for `M5Fast` and `M5Fastest`, with `EpdFrameBuffer::set_logical_pixel_gray8` and `set_logical_pixel_bw8`. A picture drawn with them matches M5GFX's for the same 8 bit input; `Gray4` input is still taken as it is.
+- `dither` turns 8 bit gray into levels the way M5GFX does, with its 4 by 4 Bayer matrix, for the 16 level modes and the black and white ones. It has `gray8_to_level`, `gray8_to_bw` and the `EpdFrameBuffer` setters `set_logical_pixel_gray8` and `set_logical_pixel_bw8`. A picture drawn with them matches M5GFX's for the same 8 bit input; `Gray4` input is still taken as it is.
 
 ### Notes
+- The crate description, the README and the crate docs name the LilyGo T5 4.7 S3 V2.4 next to the M5Stack PaperDIY. The `FastMono` doc has a page-turn recipe.
 - There is no `sleep()`: `EpdDisplay` already switches the panel rails off after every refresh, also when it fails. The README (Buses) and `EpdDisplay::release` say what to do before a deep sleep.
 
 ## [0.2.0] - 2026-11-09
@@ -32,6 +35,7 @@ First release.
 - A method added to `EpdParallelBus` later gets a default body, so a bus written outside this workspace keeps compiling.
 - The minimum supported Rust version is 1.85.
 
-[Unreleased]: https://github.com/melastmohican/epdpi/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/melastmohican/epdpi/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/melastmohican/epdpi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/melastmohican/epdpi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/melastmohican/epdpi/releases/tag/v0.1.0

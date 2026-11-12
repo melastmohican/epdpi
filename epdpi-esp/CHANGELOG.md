@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-11
+
 ### Notes
+- Requires `epdpi` 0.3.0, released together with it. No code change in this crate.
 - `LcdBus` documents the extra CL cycle that the `LCD_CAM` hardware clocks in every row (one more than the row has bytes, measured on a PaperDIY), what it sees on the data lines and what it can do at the edges of the picture, see "The extra clock" in the `lcd_bus` docs. No code change.
 
 ## [0.2.0] - 2026-11-09
@@ -24,6 +27,7 @@ First release.
 - `LcdBusError` and `PinMapError` are `#[non_exhaustive]`, so a `match` outside the crate needs a wildcard arm.
 - The minimum supported Rust version is 1.88, from `esp-hal`.
 
-[Unreleased]: https://github.com/melastmohican/epdpi/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/melastmohican/epdpi/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/melastmohican/epdpi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/melastmohican/epdpi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/melastmohican/epdpi/releases/tag/v0.1.0
