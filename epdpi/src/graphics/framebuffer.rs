@@ -81,6 +81,21 @@ impl<'a, PANEL: EpdPanel> EpdFrameBuffer<'a, PANEL> {
         }
     }
 
+    /// Writes one pixel of the picture from 8 bit gray, dithered to 16 levels with M5GFX's Bayer matrix
+    /// ([`dither::gray8_to_level`](crate::dither::gray8_to_level)). The pattern follows `x` and `y` of the
+    /// picture. Outside it is ignored.
+    pub fn set_logical_pixel_gray8(&mut self, x: u32, y: u32, gray: u8) {
+        self.set_logical_pixel(x, y, crate::dither::gray8_to_level(gray, x, y));
+    }
+
+    /// Writes one pixel of the picture from 8 bit gray as black or white with M5GFX's Bayer matrix
+    /// ([`dither::gray8_to_bw`](crate::dither::gray8_to_bw)), for
+    /// [`M5Fast`](crate::RefreshMode::M5Fast) and [`M5Fastest`](crate::RefreshMode::M5Fastest). The
+    /// pattern follows `x` and `y` of the picture. Outside it is ignored.
+    pub fn set_logical_pixel_bw8(&mut self, x: u32, y: u32, gray: u8) {
+        self.set_logical_pixel(x, y, crate::dither::gray8_to_bw(gray, x, y));
+    }
+
     /// Raw framebuffer bytes, exactly [`EpdPanel::FB_BYTES`] long.
     pub fn as_bytes(&self) -> &[u8] {
         &self.data[..PANEL::FB_BYTES]

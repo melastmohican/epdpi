@@ -38,6 +38,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod bus;
+pub mod dither;
 pub mod driver;
 pub mod error;
 pub mod graphics;
