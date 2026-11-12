@@ -9,7 +9,7 @@ which covers SPI panels that have their own controller IC.
 
 | Panel | Resolution | Grays | Boards |
 | :--- | :--- | :--- | :--- |
-| `Ed047tc1` | 960 x 540 | 16 | M5Stack PaperDIY |
+| `Ed047tc1` | 960 x 540 | 16 | M5Stack PaperDIY, LilyGo T5 4.7 S3 V2.4 |
 
 ## Status
 
@@ -21,7 +21,11 @@ darker than M5GFX. `Quality16` runs, but its top gray levels look alike. Over GP
 too long for the 16-gray waveforms (about 250 us a row against the 15.5 us data phase of M5GFX they
 are built for, computed), so the ramp squashes into a few tones. There is no temperature handling:
 M5GFX, FastEPD and epdiy have none for this panel either. The VCOM value (-2000 mV) is recorded
-and not applied, because the PaperDIY sets VCOM in hardware. `rust-m5paperdiy-examples` holds the ports of the Arduino sketches (blocking in `blocking/`, async
+and not applied, because the PaperDIY sets VCOM in hardware. The same panel is on the LilyGo T5 4.7 S3 V2.4,
+which `epdpi-esp` drives through `ShiftRegBus` (a 74HC595 style shift register carries its control lines), in blocking
+and in async mode, with the examples in
+[`rust-lilygot5-47-s3-examples`](https://github.com/melastmohican/rust-lilygot5-47-s3-examples).
+`rust-m5paperdiy-examples` holds the ports of the Arduino sketches (blocking in `blocking/`, async
 twins in `async/`), with the bring-up diagnostics on its `bringup` branch.
 
 ## Usage

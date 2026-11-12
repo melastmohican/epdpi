@@ -14,7 +14,8 @@ epdpi = "0.2"
 epdpi-esp = { version = "0.2", features = ["esp32s3"] }   # ESP32-S3 only
 ```
 
-Tested on an M5Stack PaperDIY (ED047TC1). See the crate READMEs for status. Ports of
+Tested on an M5Stack PaperDIY and a LilyGo T5 4.7 S3 V2.4, both with the ED047TC1 panel. See the crate READMEs for status.
+Examples for the LilyGo live in [`rust-lilygot5-47-s3-examples`](https://github.com/melastmohican/rust-lilygot5-47-s3-examples). Ports of
 the Arduino sketches live in [`rust-m5paperdiy-examples`](https://github.com/melastmohican/rust-m5paperdiy-examples),
 the blocking ones in its `blocking/` folder and the async twins in `async/` (the bring-up diagnostics are on its `bringup` branch).
 

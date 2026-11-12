@@ -52,5 +52,5 @@ when rows are cheap to build.
 
 ## Status
 
-`LcdBus` and `fast_bus` are tested on an M5Stack PaperDIY, in both modes. `ShiftRegBus` runs on a LilyGo T5 4.7 S3 V2.4, in both modes, with the examples of `rust-lilygot5-47-s3-examples`. See the `rust-m5paperdiy-examples` repository (`blocking/` and `async/`, the bus diagnostics are on its
+`LcdBus` and `fast_bus` are tested on an M5Stack PaperDIY, in both modes. `ShiftRegBus` runs on a LilyGo T5 4.7 S3 V2.4, in both modes, with the examples of [`rust-lilygot5-47-s3-examples`](https://github.com/melastmohican/rust-lilygot5-47-s3-examples). See the `rust-m5paperdiy-examples` repository (`blocking/` and `async/`, the bus diagnostics are on its
 `bringup` branch) for tests of both buses.

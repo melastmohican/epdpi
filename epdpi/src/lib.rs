@@ -3,7 +3,7 @@
 //! A `no_std`, [`embedded-hal`] 1.0 compatible driver framework for raw-parallel
 //! Electronic Paper Displays, where the MCU drives the panel's gate and source drivers
 //! directly over an 8-bit data bus and runs the waveform itself. The first supported
-//! glass is the E Ink ED047TC1 (960 x 540, 16 grays) on the M5Stack PaperDIY.
+//! glass is the E Ink ED047TC1 (960 x 540, 16 grays), on the M5Stack PaperDIY and the LilyGo T5 4.7 S3 V2.4.
 //! It is the parallel counterpart of `epdsi`, which covers SPI panels with their own
 //! controller IC.
 //!
