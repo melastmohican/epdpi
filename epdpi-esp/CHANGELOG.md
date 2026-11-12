@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Notes
+- `LcdBus` documents the extra CL cycle that the `LCD_CAM` hardware clocks in every row (one more than the row has bytes, measured on a PaperDIY), what it sees on the data lines and what it can do at the edges of the picture, see "The extra clock" in the `lcd_bus` docs. No code change.
+
 ## [0.2.0] - 2026-11-09
 
 ### Added

@@ -31,7 +31,8 @@ type Mode = Blocking;
 #[cfg(not(feature = "blocking"))]
 type Mode = Async;
 
-/// See the module docs. `D` times the settle delays and the frame start pulses.
+/// See the module docs. `D` times the settle delays and the frame start pulses. Each row clocks one more CL
+/// cycle than it has bytes, see "The extra clock" in the module docs.
 pub struct LcdBus<D> {
     i8080: Option<I8080<'static, Mode>>,
     buf: Option<DmaTxBuf>,

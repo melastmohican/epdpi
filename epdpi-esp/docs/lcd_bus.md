@@ -22,6 +22,27 @@ the I8080 is `Async`, a row waits for the DMA with `wait_for_done`, and the dela
 `embedded_hal_async::delay::DelayNs`, such as `embassy_time::Delay`. Needs the `esp32s3`
 feature.
 
+# The extra clock
+
+The `LCD_CAM` hardware clocks one more CL cycle per row than the row has bytes. On a PaperDIY every
+one of 540 rows of 248 bytes showed 249 CL cycles, rising and falling edges alike, and every row of 256
+bytes showed 257, all of them while SPH is low. The extra cycle happens while the data lines are at their
+idle level: a row with D0 high in every byte still counted one cycle with D0 low, and D0 is low after the
+transfer. FastEPD documents the same quirk of this hardware and says the extra clock comes before the
+data. The idle level fits that, but a count cannot tell before from after, so before is likely and not
+proven.
+
+If it comes before the data, byte 0 of every row is the idle level (hold) and the row lands one byte,
+four pixels, to the right of where the code puts it. Then x = 0 to 3 are not driven by the gray passes
+and x = 956 to 959 would fall off the end of the 240 byte row. Stripes drawn at both edges of a PaperDIY
+did not contradict this and did not prove it, because the bezel hides the edge of the glass. The 8
+padding bytes after the pixel data, the same number M5GFX uses, probably leave room for the extra cycle.
+A gray ramp shows nothing, since the whole picture moves together. FastEPD works around it only for
+clears, with the hardware chip select off.
+
+The bench examples that measured this are `lcd_clock_count`, `lcd_clock_pos` and `edge_stripes` in
+`rust-m5paperdiy-examples`.
+
 # Building these docs
 
 docs.rs cannot build this module: `esp-hal` with `esp32s3` needs the Xtensa target, which docs.rs
