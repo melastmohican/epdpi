@@ -87,7 +87,8 @@ impl<BUS, PANEL> EpdDisplay<'_, BUS, PANEL> {
         self.vcom_mv
     }
 
-    /// Gives the bus back.
+    /// Gives the bus back, for example to call [`EpdParallelBus::set_power`] with `false` after a refresh
+    /// future was dropped half way. The rails are off between refreshes, so there is no `sleep()`.
     pub fn release(self) -> BUS {
         self.bus
     }

@@ -103,6 +103,12 @@ how `esp-hal`, `embassy-rp` and `embassy-stm32` expose them. A DMA bus implement
 Board power is outside this crate. The PaperDIY's M5PM1 PMIC has to switch the panel
 rail on before `set_power(true)`.
 
+There is no `sleep()`. `EpdDisplay` switches the panel rails on before every refresh and off after it, also
+when the refresh fails, so between refreshes they are off. M5GFX's `setSleep` and `setPowerSave` are the same
+single call, panel power off or on. Before a deep sleep, switch the board rail off (the M5PM1 on a PaperDIY). If a
+refresh future was dropped half way, the rails can still be on: take the bus back with `EpdDisplay::release` and
+call `set_power(false)` on it.
+
 ## Features
 
 - `blocking` (default): `embedded-hal` API. Off gives the `embedded-hal-async` API.

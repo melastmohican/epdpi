@@ -5,6 +5,9 @@
 ### Added
 - `dither`, M5GFX's 4 by 4 Bayer reduction of 8 bit gray: `gray8_to_level` for the 16 level modes and `gray8_to_bw` for `M5Fast` and `M5Fastest`, with `EpdFrameBuffer::set_logical_pixel_gray8` and `set_logical_pixel_bw8`. A picture drawn with them matches M5GFX's for the same 8 bit input; `Gray4` input is still taken as it is.
 
+### Notes
+- There is no `sleep()`: `EpdDisplay` already switches the panel rails off after every refresh, also when it fails. The README (Buses) and `EpdDisplay::release` say what to do before a deep sleep.
+
 ## [0.2.0] - 2026-11-09
 
 ### Changed
